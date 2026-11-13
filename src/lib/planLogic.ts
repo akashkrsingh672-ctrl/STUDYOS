@@ -257,6 +257,137 @@ export function isPyqTodoOf(
   );
 }
 
+/** Row state for a chapter checklist row. */
+export type RowStatus = "idle" | "queued" | "done";
+
+/** The newest log item for one lecture row, if any. */
+export function findLectureTodo(
+  todos: Record<string, Todo[]>,
+  subject: string,
+  chapterId: string,
+  lectureIndex: number,
+): Todo | null {
+  const dates = Object.keys(todos).sort().reverse();
+  for (const date of dates) {
+    const todo = (todos[date] ?? []).find(
+      (item) => isLectureTodoOf(item, subject, chapterId) && item.lectureIndex === lectureIndex,
+    );
+    if (todo) return todo;
+  }
+  return null;
+}
+
+/** The newest log item for one PYQ set, if any. */
+export function findPyqTodo(
+  todos: Record<string, Todo[]>,
+  subject: string,
+  chapterId: string,
+  setId: string,
+): Todo | null {
+  const dates = Object.keys(todos).sort().reverse();
+  for (const date of dates) {
+    const todo = (todos[date] ?? []).find((item) =>
+      isPyqTodoOf(item, subject, chapterId, setId),
+    );
+    if (todo) return todo;
+  }
+  return null;
+}
+
+/**
+ * Lecture indices finished for a chapter: historical marks (no day) merged
+ * with lectures completed through the Todo, deduped and capped to the total.
+ */
+export function lectureDoneIndices(
+  todos: Todo[],
+  history: number[],
+  subject: string,
+  chapterId: string,
+  total: number,
+): number[] {
+  const set = new Set<number>();
+  for (const index of history) {
+    if (index >= 1 && index <= total) set.add(index);
+  }
+  for (const index of completedLectureIndices(todos, subject, chapterId)) {
+    if (index >= 1 && index <= total) set.add(index);
+  }
+  return [...set];
+}
+
+export function lectureDoneCount(
+  todos: Todo[],
+  history: number[],
+  subject: string,
+  chapterId: string,
+  total: number,
+): number {
+  return lectureDoneIndices(todos, history, subject, chapterId, total).length;
+}
+
+/** idle -> queued -> done for a lecture row (history or a completed todo = done). */
+export function lectureRowStatus(
+  todos: Record<string, Todo[]>,
+  history: number[],
+  subject: string,
+  chapterId: string,
+  lectureIndex: number,
+): RowStatus {
+  if (history.includes(lectureIndex)) return "done";
+  let pending = false;
+  for (const date of Object.keys(todos)) {
+    for (const todo of todos[date] ?? []) {
+      if (!isLectureTodoOf(todo, subject, chapterId)) continue;
+      if (todo.lectureIndex !== lectureIndex) continue;
+      if (todo.completed) return "done";
+      pending = true;
+    }
+  }
+  return pending ? "queued" : "idle";
+}
+
+/** idle -> queued -> done for a PYQ set row. */
+export function pyqRowStatus(
+  todos: Record<string, Todo[]>,
+  done: boolean,
+  subject: string,
+  chapterId: string,
+  setId: string,
+): RowStatus {
+  if (done) return "done";
+  let pending = false;
+  for (const date of Object.keys(todos)) {
+    for (const todo of todos[date] ?? []) {
+      if (!isPyqTodoOf(todo, subject, chapterId, setId)) continue;
+      if (todo.completed) return "done";
+      pending = true;
+    }
+  }
+  return pending ? "queued" : "idle";
+}
+
+/**
+ * Moves every matching log item to `date` (keeping its id) - never duplicates.
+ * Used when the assigned day changes so a pending row lives on one day only.
+ */
+export function movePendingTodos(
+  todos: Record<string, Todo[]>,
+  match: (todo: Todo) => boolean,
+  date: string,
+): Record<string, Todo[]> {
+  if (!date) return todos;
+  const next: Record<string, Todo[]> = {};
+  for (const existingDate of Object.keys(todos)) {
+    for (const todo of todos[existingDate] ?? []) {
+      const moved = match(todo);
+      const target = moved ? date : existingDate;
+      const bucket = next[target] ?? [];
+      bucket.push(moved ? { ...todo, date } : todo);
+      next[target] = bucket;
+    }
+  }
+  return next;
+}
 /** Status pill copy from Figma, derived from live progress. */
 export function deriveStatus(
   theoryDone: boolean,
@@ -295,7 +426,12 @@ export interface SubjectRollup {
 export function subjectRollup(
   subjectTodos: Todo[],
   subject: string,
-  chapters: { id: string; lectures: number; sets: { id: string; done: boolean }[] }[],
+  chapters: {
+    id: string;
+    lectures: number;
+    doneHistory: number[];
+    sets: { id: string; done: boolean }[];
+  }[],
 ): SubjectRollup {
   let plannedLectures = 0;
   let completedLectures = 0;
@@ -303,8 +439,15 @@ export function subjectRollup(
   let setsDone = 0;
 
   for (const chapter of chapters) {
-    plannedLectures += clampCount(chapter.lectures);
-    completedLectures += completedLectureCount(subjectTodos, subject, chapter.id);
+    const total = clampCount(chapter.lectures);
+    plannedLectures += total;
+    completedLectures += lectureDoneIndices(
+      subjectTodos,
+      chapter.doneHistory,
+      subject,
+      chapter.id,
+      total,
+    ).length;
     setsTotal += chapter.sets.length;
     setsDone += chapter.sets.filter((set) => set.done).length;
   }

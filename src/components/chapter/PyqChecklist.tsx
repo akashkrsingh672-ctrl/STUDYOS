@@ -13,12 +13,19 @@ interface PyqChecklistProps {
 /**
  * The 02 / PYQ PRACTICE section of the design's study flow.
  *
- * Chunk 2: question totals run 0–15.
- * Chunk 3: the "Assign for day / Sunday" control is replaced with
- * Add to Today / Add to Tomorrow / Custom date (calendar).
+ * Change Plan 2: ticking a row queues the set into the chosen day's Todo (or
+ * records a historical "already done" mark when no day is chosen); the Todo
+ * checkbox is what finally completes it.
  */
 export default function PyqChecklist({ subject, chapter }: PyqChecklistProps) {
-  const { chapterState, setPyqTotal, togglePyqDone, assignPyq, activityDates } = useStudy();
+  const {
+    chapterState,
+    setPyqTotal,
+    togglePyqDone,
+    assignPyq,
+    pyqRowStatus,
+    activityDates,
+  } = useStudy();
   const state = chapterState(subject, chapter.id);
   const setsDone = state.pyqs.filter((pyq) => pyq.done).length;
 
@@ -33,27 +40,34 @@ export default function PyqChecklist({ subject, chapter }: PyqChecklistProps) {
 
       <div className="flex flex-col gap-2">
         {state.pyqs.map((pyq) => {
-          const done = pyq.done;
+          const status = pyqRowStatus(chapter.id, pyq.id);
+          const done = status === "done";
+          const rowTone =
+            status === "done"
+              ? "bg-success-soft"
+              : status === "queued"
+                ? "bg-accent-softer"
+                : "bg-surface-subtle";
+          const boxTone =
+            status === "done"
+              ? "border-success-border bg-success-check text-success"
+              : status === "queued"
+                ? "border-accent bg-accent-soft text-accent"
+                : "border-border-check bg-surface-muted text-transparent hover:border-accent";
           return (
             <div
               key={pyq.id}
-              className={`flex min-h-[47px] flex-wrap items-center gap-3 rounded-control px-3 py-2 ${
-                done ? "bg-success-soft" : "bg-surface-subtle"
-              }`}
+              className={`flex min-h-[47px] flex-wrap items-center gap-3 rounded-control px-3 py-2 ${rowTone}`}
             >
               <button
                 type="button"
                 role="checkbox"
-                aria-checked={done}
-                aria-label={`Mark ${pyq.label} as done`}
+                aria-checked={status === "done"}
+                aria-label={`Toggle ${pyq.label}`}
                 onClick={() => togglePyqDone(chapter.id, pyq.id)}
-                className={`flex size-[20px] shrink-0 items-center justify-center rounded-checkbox border transition-colors ${
-                  done
-                    ? "border-success-border bg-success-check text-success"
-                    : "border-border-check bg-surface-muted text-transparent hover:border-accent"
-                }`}
+                className={`flex size-[20px] shrink-0 items-center justify-center rounded-checkbox border transition-colors ${boxTone}`}
               >
-                <span className="text-[13px] font-semibold leading-none">✓</span>
+                <span className="text-[13px] font-semibold leading-none">{"\u2713"}</span>
               </button>
 
               <p
@@ -73,7 +87,7 @@ export default function PyqChecklist({ subject, chapter }: PyqChecklistProps) {
 
               {done ? (
                 <div className="flex h-[32px] w-[288px] shrink-0 items-center justify-center text-[11px] text-success">
-                  ✓&nbsp;&nbsp;Practice complete
+                  {"\u2713"}&nbsp;&nbsp;Practice complete
                 </div>
               ) : (
                 <AssignToDateControl
@@ -91,7 +105,7 @@ export default function PyqChecklist({ subject, chapter }: PyqChecklistProps) {
 
       <div className="flex flex-wrap items-center gap-3">
         <p className="flex-1 text-[11px] text-muted">
-          Set each question total, then tick a set when every question is done.
+          Assign a day, then tick a set to queue it - complete it from the Todo.
         </p>
         <p className="text-[10px] font-semibold text-muted">
           {setsDone}/{state.pyqs.length} SETS DONE

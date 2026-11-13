@@ -13,8 +13,6 @@ import { SUBJECTS, chaptersOf, findChapter } from "@/lib/curriculum";
 import { addDays, countDaysBetween, todayKey } from "@/lib/date";
 import {
   clampCount,
-  completedLectureCount,
-  completedLectureIndices,
   createLectureTodo,
   createPyqTodo,
   dayStats,
@@ -23,9 +21,13 @@ import {
   flattenTodos,
   isLectureTodoOf,
   isPyqTodoOf,
+  lectureDoneCount,
+  lectureRowStatus as planLectureRowStatus,
   makeTodoId,
+  movePendingTodos,
+  pyqRowStatus as planPyqRowStatus,
 } from "@/lib/planLogic";
-import type { DayStats } from "@/lib/planLogic";
+import type { DayStats, RowStatus } from "@/lib/planLogic";
 import { quoteForDate } from "@/lib/quotes";
 import type { Quote } from "@/lib/quotes";
 import { createChapterState, createInitialState, hydrateState, normalizeState } from "@/lib/state";
@@ -73,6 +75,12 @@ export interface StudyContextValue {
   setPyqTotal: (chapterId: string, setId: string, value: number) => void;
   togglePyqDone: (chapterId: string, setId: string) => void;
   assignPyq: (chapterId: string, setId: string, date: string, source: TodoSource) => void;
+  /** Persist the chapter's theory-lecture total ("Add N lectures"). */
+  saveChapterLectures: (chapterId: string) => void;
+  /** Row state for the chapter's lecture checklist. */
+  lectureRowStatus: (chapterId: string, lectureIndex: number) => RowStatus;
+  /** Row state for a PYQ set. */
+  pyqRowStatus: (chapterId: string, setId: string) => RowStatus;
 
   todosFor: (date: string) => Todo[];
   logFor: (date: string) => DailyLogEntry;
@@ -205,11 +213,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         const updated = withChapter(current, subject, chapterId, (chapter) => ({
           ...chapter,
           lectures: next,
-          lecturesPlanned: next > 0 ? chapter.lecturesPlanned : false,
+          lecturesSaved: next > 0 ? chapter.lecturesSaved : false,
+          // A shorter total means those lecture rows no longer exist.
+          lectureDoneHistory: chapter.lectureDoneHistory.filter((index) => index <= next),
         }));
 
-        // Keep plan and log consistent: drop not-yet-done lectures that fall
-        // outside the new plan. Completed history is never removed.
         return withTodos(updated, (todos) => {
           const trimmed: Record<string, Todo[]> = {};
           for (const date of Object.keys(todos)) {
@@ -232,54 +240,42 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     [mutate],
   );
 
+  /** "Add N lectures" - saves the chapter's real theory-lecture total only. */
+  const saveChapterLectures = useCallback(
+    (chapterId: string) => {
+      mutate((current) =>
+        withChapter(current, current.activeSubject, chapterId, (chapter) => ({
+          ...chapter,
+          lecturesSaved: chapter.lectures > 0,
+        })),
+      );
+    },
+    [mutate],
+  );
+
   const assignLectures = useCallback(
     (chapterId: string, date: string, source: TodoSource) => {
-      mutateWithDate((current, stamp) => {
+      mutate((current) => {
         const subject = current.activeSubject;
-        const seed = findChapter(subject, chapterId);
         const chapter = current.chapters[subject]?.[chapterId];
-        if (!seed || !chapter || !date) return current;
+        if (!chapter || !date) return current;
 
-        const count = clampCount(chapter.lectures);
-        const done = new Set(completedLectureIndices(flattenTodos(current.todos), subject, chapterId));
-        const alreadyToday = new Set(
-          (current.todos[date] ?? [])
-            .filter((todo) => isLectureTodoOf(todo, subject, chapterId))
-            .map((todo) => todo.lectureIndex ?? 0),
+        // Choosing a day enables queue mode. Pending lecture rows for this
+        // chapter move to the chosen day; completed rows stay where they are
+        // (history) and historical marks are untouched.
+        const todos = movePendingTodos(
+          current.todos,
+          (todo) => isLectureTodoOf(todo, subject, chapterId) && !todo.completed,
+          date,
         );
 
-        const additions: Todo[] = [];
-        for (let index = 1; index <= count; index += 1) {
-          if (done.has(index) || alreadyToday.has(index)) continue;
-          additions.push(
-            createLectureTodo({
-              subject,
-              chapterId,
-              chapterTitle: seed.title,
-              lectureIndex: index,
-              date,
-              source,
-              createdAt: stamp,
-            }),
-          );
-        }
-
-        const withNew =
-          additions.length > 0
-            ? withTodos(current, (todos) => ({
-                ...todos,
-                [date]: [...(todos[date] ?? []), ...additions],
-              }))
-            : current;
-
-        return withChapter(withNew, subject, chapterId, (state) => ({
+        return withChapter(withTodos(current, () => todos), subject, chapterId, (state) => ({
           ...state,
-          lecturesPlanned: true,
           lectureAssign: { date, source },
         }));
       });
     },
-    [mutateWithDate],
+    [mutate],
   );
 
   const toggleLecture = useCallback(
@@ -287,37 +283,55 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       mutateWithDate((current, stamp) => {
         const subject = current.activeSubject;
         const seed = findChapter(subject, chapterId);
-        if (!seed) return current;
+        const chapter = current.chapters[subject]?.[chapterId];
+        if (!seed || !chapter) return current;
 
-        const match = (todo: Todo) =>
-          isLectureTodoOf(todo, subject, chapterId) && todo.lectureIndex === lectureIndex;
-        const located = locateTodo(current.todos, match);
+        // Finished through the Todo -> it is done; undo it there.
+        const alreadyDone = flattenTodos(current.todos).some(
+          (todo) =>
+            isLectureTodoOf(todo, subject, chapterId) &&
+            todo.lectureIndex === lectureIndex &&
+            todo.completed,
+        );
+        if (alreadyDone) return current;
 
-        if (located) {
-          return withTodos(current, (todos) =>
-            mapDate(todos, located.date, (items) =>
-              items.map((todo) =>
-                todo.id === located.todo.id
-                  ? { ...todo, completed: !todo.completed }
-                  : todo,
-              ),
-            ),
+        const assign = chapter.lectureAssign;
+
+        if (assign) {
+          // Queue mode: a tick moves the row into the chosen day's Todo.
+          const pending = locateTodo(
+            current.todos,
+            (todo) =>
+              isLectureTodoOf(todo, subject, chapterId) &&
+              todo.lectureIndex === lectureIndex &&
+              !todo.completed,
           );
+          if (pending) {
+            return withTodos(current, (todos) =>
+              removeFromDay(todos, pending.date, (todo) => todo.id === pending.todo.id),
+            );
+          }
+          if (chapter.lectureDoneHistory.includes(lectureIndex)) return current;
+
+          const todo = createLectureTodo({
+            subject,
+            chapterId,
+            chapterTitle: seed.title,
+            lectureIndex,
+            date: assign.date,
+            source: assign.source,
+            createdAt: stamp,
+            completed: false,
+          });
+          return withTodos(current, (todos) => insertTodo(todos, assign.date, todo));
         }
 
-        // No plan item yet: checking it off logs it to today (Chunk 5).
-        const key = todayKey();
-        const todo = createLectureTodo({
-          subject,
-          chapterId,
-          chapterTitle: seed.title,
-          lectureIndex,
-          date: key,
-          source: "today",
-          createdAt: stamp,
-          completed: true,
-        });
-        return withTodos(current, (todos) => insertTodo(todos, key, todo));
+        // No day selected: a tick records a historical ("already done") mark
+        // that counts toward overall syllabus only.
+        return withChapter(current, subject, chapterId, (state) => ({
+          ...state,
+          lectureDoneHistory: toggleIndex(state.lectureDoneHistory, lectureIndex),
+        }));
       });
     },
     [mutateWithDate],
@@ -359,53 +373,50 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       mutateWithDate((current, stamp) => {
         const subject = current.activeSubject;
         const seed = findChapter(subject, chapterId);
-        const set = current.chapters[subject]?.[chapterId]?.pyqs.find(
-          (pyq) => pyq.id === setId,
-        );
-        if (!seed || !set) return current;
+        const chapter = current.chapters[subject]?.[chapterId];
+        const set = chapter?.pyqs.find((pyq) => pyq.id === setId);
+        if (!seed || !chapter || !set) return current;
 
-        const nextDone = !set.done;
-        const targetDate = set.assignedDate ?? todayKey();
-        const updated = withChapter(current, subject, chapterId, (chapter) => ({
-          ...chapter,
-          pyqs: chapter.pyqs.map((pyq) =>
-            pyq.id === setId
-              ? {
-                  ...pyq,
-                  done: nextDone,
-                  assignedDate: pyq.assignedDate ?? targetDate,
-                  assignedSource: pyq.assignedSource ?? "today",
-                }
-              : pyq,
-          ),
-        }));
-
-        const located = locateTodo(updated.todos, (todo) =>
-          isPyqTodoOf(todo, subject, chapterId, setId),
+        // Finished through the Todo -> it is done; undo it there.
+        const alreadyDone = flattenTodos(current.todos).some(
+          (todo) => isPyqTodoOf(todo, subject, chapterId, setId) && todo.completed,
         );
-        if (located) {
-          return withTodos(updated, (todos) =>
-            mapDate(todos, located.date, (items) =>
-              items.map((todo) =>
-                todo.id === located.todo.id
-                  ? { ...todo, completed: nextDone, amount: set.total }
-                  : todo,
-              ),
-            ),
+        if (alreadyDone) return current;
+
+        const day = set.assignedDate;
+
+        if (day) {
+          // Queue mode: a tick moves the set into the chosen day's Todo.
+          const pending = locateTodo(
+            current.todos,
+            (todo) => isPyqTodoOf(todo, subject, chapterId, setId) && !todo.completed,
           );
+          if (pending) {
+            return withTodos(current, (todos) =>
+              removeFromDay(todos, pending.date, (todo) => todo.id === pending.todo.id),
+            );
+          }
+          if (set.done) return current;
+
+          const todo = createPyqTodo({
+            subject,
+            chapterId,
+            chapterTitle: seed.title,
+            set,
+            date: day,
+            source: set.assignedSource ?? "today",
+            createdAt: stamp,
+            completed: false,
+          });
+          return withTodos(current, (todos) => insertTodo(todos, day, todo));
         }
 
-        const todo = createPyqTodo({
-          subject,
-          chapterId,
-          chapterTitle: seed.title,
-          set,
-          date: targetDate,
-          source: "today",
-          createdAt: stamp,
-          completed: nextDone,
-        });
-        return withTodos(updated, (todos) => insertTodo(todos, targetDate, todo));
+        // No day selected: a tick records a historical ("already done") mark
+        // that counts toward overall PYQ progress only.
+        return withChapter(current, subject, chapterId, (state) => ({
+          ...state,
+          pyqs: state.pyqs.map((pyq) => (pyq.id === setId ? { ...pyq, done: !pyq.done } : pyq)),
+        }));
       });
     },
     [mutateWithDate],
@@ -413,52 +424,31 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   const assignPyq = useCallback(
     (chapterId: string, setId: string, date: string, source: TodoSource) => {
-      mutateWithDate((current, stamp) => {
+      mutate((current) => {
         const subject = current.activeSubject;
-        const seed = findChapter(subject, chapterId);
-        const set = current.chapters[subject]?.[chapterId]?.pyqs.find(
-          (pyq) => pyq.id === setId,
-        );
-        if (!seed || !set || !date) return current;
+        const chapter = current.chapters[subject]?.[chapterId];
+        const set = chapter?.pyqs.find((pyq) => pyq.id === setId);
+        if (!chapter || !set || !date) return current;
 
-        const updated = withChapter(current, subject, chapterId, (chapter) => ({
-          ...chapter,
-          pyqs: chapter.pyqs.map((pyq) =>
+        const updated = withChapter(current, subject, chapterId, (state) => ({
+          ...state,
+          pyqs: state.pyqs.map((pyq) =>
             pyq.id === setId ? { ...pyq, assignedDate: date, assignedSource: source } : pyq,
           ),
         }));
 
-        // Move any outstanding item for the set to the chosen day so the
-        // daily target never double-counts.
-        let todos = updated.todos;
-        for (const existingDate of Object.keys(todos)) {
-          if (existingDate === date) continue;
-          todos = removeFromDay(
+        // Move any outstanding item for the set to the chosen day so the daily
+        // target never double-counts.
+        return withTodos(updated, (todos) =>
+          movePendingTodos(
             todos,
-            existingDate,
             (todo) => isPyqTodoOf(todo, subject, chapterId, setId) && !todo.completed,
-          );
-        }
-
-        const alreadyThere = (todos[date] ?? []).some((todo) =>
-          isPyqTodoOf(todo, subject, chapterId, setId),
+            date,
+          ),
         );
-        if (alreadyThere) return { ...updated, todos };
-
-        const todo = createPyqTodo({
-          subject,
-          chapterId,
-          chapterTitle: seed.title,
-          set,
-          date,
-          source,
-          createdAt: stamp,
-          completed: set.done,
-        });
-        return { ...updated, todos: insertTodo(todos, date, todo) };
       });
     },
-    [mutateWithDate],
+    [mutate],
   );
 
   /* --------------------------------------------------------------- todo list */
@@ -566,7 +556,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       const chapter = chapterState(subject, chapterId);
       const lectures = clampCount(chapter.lectures);
       const lecturesDone = Math.min(
-        completedLectureCount(allTodos, subject, chapterId),
+        lectureDoneCount(allTodos, chapter.lectureDoneHistory, subject, chapterId, lectures),
         lectures,
       );
       const setsTotal = chapter.pyqs.length;
@@ -583,6 +573,26 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       };
     },
     [allTodos, chapterState],
+  );
+
+  const lectureRowStatus = useCallback(
+    (chapterId: string, lectureIndex: number): RowStatus => {
+      const subject = state.activeSubject;
+      const history = state.chapters[subject]?.[chapterId]?.lectureDoneHistory ?? [];
+      return planLectureRowStatus(state.todos, history, subject, chapterId, lectureIndex);
+    },
+    [state.activeSubject, state.chapters, state.todos],
+  );
+
+  const pyqRowStatus = useCallback(
+    (chapterId: string, setId: string): RowStatus => {
+      const subject = state.activeSubject;
+      const done = Boolean(
+        state.chapters[subject]?.[chapterId]?.pyqs.find((pyq) => pyq.id === setId)?.done,
+      );
+      return planPyqRowStatus(state.todos, done, subject, chapterId, setId);
+    },
+    [state.activeSubject, state.chapters, state.todos],
   );
 
   const todosFor = useCallback((date: string) => state.todos[date] ?? [], [state.todos]);
@@ -613,8 +623,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     chapterState,
     chapterProgress,
     setChapterLectures,
+    saveChapterLectures,
     toggleLecture,
     assignLectures,
+    lectureRowStatus,
+    pyqRowStatus,
     setPyqTotal,
     togglePyqDone,
     assignPyq,
@@ -657,6 +670,13 @@ function locateTodo(
     if (todo) return { date, todo };
   }
   return null;
+}
+
+/** Adds or removes a lecture index from a sorted history list. */
+function toggleIndex(list: number[], index: number): number[] {
+  return list.includes(index)
+    ? list.filter((item) => item !== index)
+    : [...list, index].sort((a, b) => a - b);
 }
 
 export function useStudy(): StudyContextValue {

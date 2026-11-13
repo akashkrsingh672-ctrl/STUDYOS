@@ -35,6 +35,11 @@ export interface SubjectSeed {
 export interface PyqSetState extends PyqSetSeed {
   /** Question total for the set (0-15). */
   total: number;
+  /**
+   * Finished for the chapter's PYQ progress. Set by the Todo checkbox (a queued
+   * set) or by the chapter checkbox when NO day is selected (a historical,
+   * already-done mark). Ticking a queued row never sets this.
+   */
   done: boolean;
   assignedDate: string | null;
   assignedSource: TodoSource | null;
@@ -42,12 +47,17 @@ export interface PyqSetState extends PyqSetSeed {
 
 /** Persisted per-chapter state. */
 export interface ChapterState {
-  /** Planned lectures for the chapter (0-15). */
+  /** Total theory lectures in the chapter (0-15). A conserved property, not a plan. */
   lectures: number;
-  /** True once the learner confirmed the lecture plan ("Add N lectures"). */
-  lecturesPlanned: boolean;
-  /** Day the lecture checklist was assigned to. */
+  /** True once the learner saved the chapter's lecture total (Add N lectures). */
+  lecturesSaved: boolean;
+  /** Day the lecture rows are queued to. Null means no day has been chosen. */
   lectureAssign: { date: string; source: TodoSource } | null;
+  /**
+   * Lecture indices marked done with no day selected (historical / already-done
+   * entry). Counts toward overall syllabus only, never toward a day.
+   */
+  lectureDoneHistory: number[];
   pyqs: PyqSetState[];
 }
 

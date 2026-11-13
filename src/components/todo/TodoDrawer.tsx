@@ -218,7 +218,7 @@ export default function TodoDrawer() {
         </div>
 
         <div className="flex items-center justify-between border-t border-hairline px-5 py-3 text-[10px] text-muted">
-          <span>Saved in your browser</span>
+          <span>Tick to complete - saved in your browser</span>
           <span>
             {stats.lecturesTarget} lectures · {stats.questionsPracticed} questions
           </span>

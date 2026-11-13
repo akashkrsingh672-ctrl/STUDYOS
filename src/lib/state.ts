@@ -1,12 +1,12 @@
-import { DEFAULT_CHAPTER_LECTURES, SUBJECTS } from "./curriculum";
+import { DEFAULT_CHAPTER_LECTURES, SUBJECTS } from "./curriculum.ts";
 import {
   buildDailyLog,
   clampCount,
   emptyDailyLog,
   flattenTodos,
   subjectRollup,
-} from "./planLogic";
-import { STORAGE_VERSION } from "./storage";
+} from "./planLogic.ts";
+import { STORAGE_VERSION } from "./storage.ts";
 import type {
   ChapterSeed,
   ChapterState,
@@ -30,10 +30,25 @@ export function createPyqSetState(pyq: ChapterSeed["pyqs"][number]): PyqSetState
 export function createChapterState(seed: ChapterSeed): ChapterState {
   return {
     lectures: clampCount(DEFAULT_CHAPTER_LECTURES),
-    lecturesPlanned: false,
+    lecturesSaved: false,
     lectureAssign: null,
+    lectureDoneHistory: [],
     pyqs: seed.pyqs.map(createPyqSetState),
   };
+}
+
+/** Chapter fields that may be missing from data saved before Change Plan 2. */
+type StoredChapter = Partial<ChapterState> & { lecturesPlanned?: boolean };
+
+/** Keeps only real, in-range lecture indices from a persisted history list. */
+function sanitizeLectureHistory(value: unknown, total: number): number[] {
+  if (!Array.isArray(value)) return [];
+  const set = new Set<number>();
+  for (const item of value) {
+    const index = Math.round(Number(item));
+    if (Number.isFinite(index) && index >= 1 && index <= total) set.add(index);
+  }
+  return [...set].sort((a, b) => a - b);
 }
 
 export function createInitialState(): StudyState {
@@ -100,6 +115,7 @@ export function normalizeState(state: StudyState): StudyState {
       seed.chapters.map((chapter) => ({
         id: chapter.id,
         lectures: subjectChapters[chapter.id]?.lectures ?? 0,
+        doneHistory: subjectChapters[chapter.id]?.lectureDoneHistory ?? [],
         sets: (subjectChapters[chapter.id]?.pyqs ?? []).map((pyq) => ({
           id: pyq.id,
           done: pyq.done,
@@ -161,8 +177,14 @@ export function hydrateState(loaded: StudyState | null): StudyState {
       });
       subjectChapters[chapter.id] = {
         lectures: clampCount(stored.lectures ?? fresh.lectures),
-        lecturesPlanned: Boolean(stored.lecturesPlanned),
+        lecturesSaved: Boolean(
+          (stored as StoredChapter).lecturesSaved ?? (stored as StoredChapter).lecturesPlanned,
+        ),
         lectureAssign: stored.lectureAssign ?? null,
+        lectureDoneHistory: sanitizeLectureHistory(
+          (stored as StoredChapter).lectureDoneHistory,
+          clampCount(stored.lectures ?? fresh.lectures),
+        ),
         pyqs,
       };
     }

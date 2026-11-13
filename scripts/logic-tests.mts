@@ -21,10 +21,17 @@ import {
   createPyqTodo,
   dayStats,
   deriveStatus,
+  findLectureTodo,
+  findPyqTodo,
   flattenTodos,
   gaugePct,
   isLectureTodoOf,
   isPyqTodoOf,
+  lectureDoneCount,
+  lectureDoneIndices,
+  lectureRowStatus,
+  movePendingTodos,
+  pyqRowStatus,
   subjectRollup,
 } from "../src/lib/planLogic.ts";
 import {
@@ -43,6 +50,7 @@ import {
   loadState,
   saveState,
 } from "../src/lib/storage.ts";
+import { hydrateState } from "../src/lib/state.ts";
 import type { PyqSetState, StudyState, Todo } from "../src/lib/types.ts";
 
 let passed = 0;
@@ -320,8 +328,8 @@ test("completed lectures are counted once per chapter across every date", () => 
 test("subject roll-up drives the syllabus and PYQ rings", () => {
   const todos = [lectureTodo(1, "2026-11-13", true), lectureTodo(2, "2026-11-13", true)];
   const rollup = subjectRollup(todos, SUBJECT, [
-    { id: CHAPTER, lectures: 4, sets: [{ id: "m1", done: true }, { id: "m3", done: false }] },
-    { id: "current-electricity", lectures: 4, sets: [{ id: "m1", done: false }] },
+    { id: CHAPTER, lectures: 4, doneHistory: [], sets: [{ id: "m1", done: true }, { id: "m3", done: false }] },
+    { id: "current-electricity", lectures: 4, doneHistory: [], sets: [{ id: "m1", done: false }] },
   ]);
   assert.equal(rollup.plannedLectures, 8);
   assert.equal(rollup.completedLectures, 2);
@@ -333,8 +341,8 @@ test("subject roll-up drives the syllabus and PYQ rings", () => {
 
 test("planned lecture totals stay capped at 15 per chapter", () => {
   const rollup = subjectRollup([], SUBJECT, [
-    { id: CHAPTER, lectures: 99, sets: [] },
-    { id: "current-electricity", lectures: -5, sets: [] },
+    { id: CHAPTER, lectures: 99, doneHistory: [], sets: [] },
+    { id: "current-electricity", lectures: -5, doneHistory: [], sets: [] },
   ]);
   assert.equal(rollup.plannedLectures, 15);
 });
@@ -364,6 +372,190 @@ test("practised question totals sum completed sets for a chapter", () => {
   ];
   assert.equal(completedQuestionCount(todos, SUBJECT, CHAPTER), 6);
   assert.equal(completedQuestionCount(todos, "Chemistry", CHAPTER), 0);
+});
+
+/* ------------------------------------- change plan 2: history vs. the queue */
+
+test("historical marks and completed todos merge toward the syllabus (Plan 2)", () => {
+  const todos = [lectureTodo(2, "2026-11-13", true), lectureTodo(3, "2026-11-13", false)];
+  const done = lectureDoneIndices(todos, [1], SUBJECT, CHAPTER, 4);
+  assert.deepEqual(done.sort((a, b) => a - b), [1, 2]);
+  assert.equal(lectureDoneCount(todos, [1], SUBJECT, CHAPTER, 4), 2);
+  assert.deepEqual(
+    lectureDoneIndices(todos, [1, 9], SUBJECT, CHAPTER, 4).sort((a, b) => a - b),
+    [1, 2],
+  );
+});
+
+test("a lecture row is idle, queued then done (Plan 2)", () => {
+  const todos: Record<string, Todo[]> = {
+    "2026-11-13": [
+      createLectureTodo({
+        subject: SUBJECT,
+        chapterId: CHAPTER,
+        chapterTitle: "Electric Charges and Fields",
+        lectureIndex: 1,
+        date: "2026-11-13",
+        source: "today",
+        createdAt: STAMP,
+        completed: false,
+      }),
+    ],
+  };
+  assert.equal(lectureRowStatus(todos, [], SUBJECT, CHAPTER, 1), "queued");
+  assert.equal(lectureRowStatus(todos, [], SUBJECT, CHAPTER, 2), "idle");
+  assert.equal(lectureRowStatus(todos, [3], SUBJECT, CHAPTER, 3), "done");
+  const done = {
+    "2026-11-13": todos["2026-11-13"].map((todo) => ({ ...todo, completed: true })),
+  };
+  assert.equal(lectureRowStatus(done, [], SUBJECT, CHAPTER, 1), "done");
+});
+
+test("a PYQ row mirrors the same idle/queued/done flow (Plan 2)", () => {
+  const todos: Record<string, Todo[]> = {
+    "2026-11-14": [
+      createPyqTodo({
+        subject: SUBJECT,
+        chapterId: CHAPTER,
+        chapterTitle: "Electric Charges and Fields",
+        set: pyqSet,
+        date: "2026-11-14",
+        source: "tomorrow",
+        createdAt: STAMP,
+        completed: false,
+      }),
+    ],
+  };
+  assert.equal(pyqRowStatus(todos, false, SUBJECT, CHAPTER, "m3"), "queued");
+  assert.equal(pyqRowStatus(todos, true, SUBJECT, CHAPTER, "m3"), "done");
+  assert.equal(pyqRowStatus(todos, false, SUBJECT, CHAPTER, "m5"), "idle");
+  assert.equal(findPyqTodo(todos, SUBJECT, CHAPTER, "m3")?.date, "2026-11-14");
+  assert.equal(findLectureTodo(todos, SUBJECT, CHAPTER, 1), null);
+});
+
+test("moving a pending item to another day never duplicates it (Plan 2)", () => {
+  const todos: Record<string, Todo[]> = {
+    "2026-11-13": [
+      createLectureTodo({
+        subject: SUBJECT,
+        chapterId: CHAPTER,
+        chapterTitle: "Electric Charges and Fields",
+        lectureIndex: 1,
+        date: "2026-11-13",
+        source: "today",
+        createdAt: STAMP,
+        completed: false,
+      }),
+    ],
+  };
+  const id = todos["2026-11-13"][0].id;
+  const moved = movePendingTodos(todos, (todo) => !todo.completed, "2026-11-14");
+  assert.equal(moved["2026-11-13"], undefined);
+  assert.equal(moved["2026-11-14"].length, 1);
+  assert.equal(moved["2026-11-14"][0].id, id);
+  assert.equal(moved["2026-11-14"][0].date, "2026-11-14");
+
+  const kept = movePendingTodos(
+    { "2026-11-13": [{ ...todos["2026-11-13"][0], completed: true }] },
+    (todo) => !todo.completed,
+    "2026-11-14",
+  );
+  assert.equal(kept["2026-11-13"].length, 1);
+  assert.equal(kept["2026-11-14"], undefined);
+});
+
+test("subject roll-up counts historical lecture marks (Plan 2)", () => {
+  const rollup = subjectRollup([], SUBJECT, [
+    { id: CHAPTER, lectures: 4, doneHistory: [1, 2], sets: [{ id: "m1", done: false }] },
+  ]);
+  assert.equal(rollup.completedLectures, 2);
+  assert.equal(rollup.syllabusPct, 50);
+});
+
+test("un-completing a todo drops daily and syllabus progress (Plan 2)", () => {
+  const todos = [lectureTodo(1, "2026-11-13", true), lectureTodo(2, "2026-11-13", false)];
+  assert.equal(dayStats(todos).lecturesCompleted, 1);
+  assert.equal(lectureDoneIndices(todos, [], SUBJECT, CHAPTER, 4).length, 1);
+  assert.equal(
+    subjectRollup(todos, SUBJECT, [{ id: CHAPTER, lectures: 4, doneHistory: [], sets: [] }])
+      .completedLectures,
+    1,
+  );
+
+  const undone = todos.map((todo) => ({ ...todo, completed: false }));
+  assert.equal(dayStats(undone).lecturesCompleted, 0);
+  assert.equal(dayStats(undone).lecturesTarget, 2);
+  assert.equal(lectureDoneIndices(undone, [], SUBJECT, CHAPTER, 4).length, 0);
+  assert.equal(
+    subjectRollup(undone, SUBJECT, [{ id: CHAPTER, lectures: 4, doneHistory: [], sets: [] }])
+      .completedLectures,
+    0,
+  );
+});
+
+test("a shorter lecture total trims only the vanished rows (Plan 2)", () => {
+  const todos = [lectureTodo(1, "2026-11-13", true), lectureTodo(4, "2026-11-13", true)];
+  assert.deepEqual(
+    lectureDoneIndices(todos, [2, 4], SUBJECT, CHAPTER, 4).sort((a, b) => a - b),
+    [1, 2, 4],
+  );
+  assert.deepEqual(
+    lectureDoneIndices(todos, [2, 4], SUBJECT, CHAPTER, 3).sort((a, b) => a - b),
+    [1, 2],
+  );
+});
+
+test("a v1 log migrates to v2 without losing data (Plan 2)", () => {
+  const v1 = {
+    version: 1,
+    activeSubject: "Physics",
+    dailyLog: {
+      "2026-11-13": {
+        lecturesCompleted: 2,
+        lecturesTarget: 3,
+        questionsPracticed: 6,
+        chaptersPracticed: { [CHAPTER]: 6 },
+        allDone: false,
+        moraleShown: true,
+      },
+    },
+    todos: {
+      "2026-11-13": [lectureTodo(1, "2026-11-13", true), lectureTodo(2, "2026-11-13", true)],
+    },
+    subjects: {},
+    chapters: {
+      Physics: {
+        [CHAPTER]: {
+          lectures: 5,
+          // Pre-Plan-2 field name; `lectureDoneHistory` is new and must survive sanitising.
+          lecturesPlanned: true,
+          lectureAssign: null,
+          lectureDoneHistory: [1, 9],
+          pyqs: [
+            {
+              ...pyqSet,
+              id: "m1",
+              label: "1 marker questions",
+              defaultTotal: 4,
+              total: 4,
+              done: true,
+            },
+          ],
+        },
+      },
+    },
+  } as unknown as StudyState;
+
+  const migrated = hydrateState(v1);
+  const chapter = migrated.chapters.Physics[CHAPTER];
+  assert.equal(migrated.version, STORAGE_VERSION);
+  assert.equal(chapter.lectures, 5);
+  assert.equal(chapter.lecturesSaved, true);
+  assert.deepEqual(chapter.lectureDoneHistory, [1]);
+  assert.equal(chapter.pyqs.find((pyq) => pyq.id === "m1")?.done, true);
+  assert.equal(migrated.todos["2026-11-13"].length, 2);
+  assert.equal(migrated.dailyLog["2026-11-13"].moraleShown, true);
+  assert.equal(migrated.dailyLog["2026-11-13"].lecturesCompleted, 2);
 });
 
 /* ------------------------------------------------------- persistence layer */

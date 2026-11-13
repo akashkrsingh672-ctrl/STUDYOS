@@ -7,7 +7,9 @@ import type { StudyState } from "./types";
  * private-browsing modes where `localStorage` can throw.
  */
 export const STORAGE_KEY = "studyos:log";
-export const STORAGE_VERSION = 1;
+export const STORAGE_VERSION = 2;
+/** Oldest persisted shape we can still read and migrate in place. */
+export const MIN_SUPPORTED_VERSION = 1;
 
 export function loadState(): StudyState | null {
   if (typeof window === "undefined") return null;
@@ -16,7 +18,13 @@ export function loadState(): StudyState | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StudyState;
     if (!parsed || typeof parsed !== "object") return null;
-    if (parsed.version !== STORAGE_VERSION) return null;
+    if (
+      typeof parsed.version !== "number" ||
+      parsed.version < MIN_SUPPORTED_VERSION ||
+      parsed.version > STORAGE_VERSION
+    ) {
+      return null;
+    }
     return parsed;
   } catch {
     return null;
