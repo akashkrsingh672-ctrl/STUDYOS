@@ -1,6 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap");
 @import "tailwindcss";
-
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@700&display=swap");
 
 :root {
   /* Backgrounds */
@@ -8,21 +7,33 @@
   --foreground: #eaf4f4;
   --surface: rgba(234, 244, 244, 0.04);
   --surface-hover: rgba(234, 244, 244, 0.08);
+  --surface-subtle: rgba(234, 244, 244, 0.02);
+  --surface-muted: rgba(234, 244, 244, 0.03);
+  --surface-raised: rgba(234, 244, 244, 0.05);
+  --drawer: #0e1729;
   --monogram-bg: #1f3a5f;
+  --accent-soft: rgba(90, 169, 230, 0.1);
+  --accent-softer: rgba(90, 169, 230, 0.08);
 
   /* Borders */
   --border-light: rgba(234, 244, 244, 0.1);
   --border-medium: rgba(234, 244, 244, 0.12);
   --border-strong: rgba(234, 244, 244, 0.2);
   --border-success: rgba(120, 219, 178, 0.28);
+  --border-check: rgba(165, 186, 203, 0.4);
   --hairline: rgba(234, 244, 244, 0.1);
+  --success-soft: rgba(120, 219, 178, 0.05);
+  --success-soft-strong: rgba(120, 219, 178, 0.1);
+  --success-check: rgba(120, 219, 178, 0.16);
+  --success-border: rgba(120, 219, 178, 0.65);
 
   /* Text */
   --text-primary: #eaf4f4;
   --text-muted: #a5bacb;
   --accent: #5aa9e6;
   --accent-text: #5aa9e6;
-  --success: #78db78;
+  --success: #78dbb2;
+  --on-accent: #172b40;
 
   /* Fonts */
   --font-sans: "Inter", sans-serif;
@@ -30,23 +41,47 @@
 
   /* Radii */
   --radius-card: 16px;
+  --radius-control: 10px;
+  --radius-soft: 9px;
   --radius-stepper: 8px;
   --radius-button: 7px;
+  --radius-checkbox: 6px;
+  --radius-pill: 13px;
   --radius-monogram: 13px;
   --radius-session: 14px;
+  --radius-assign: 16px;
+
+  /* Elevation */
+  --shadow-tooltip: 0 18px 40px rgba(3, 8, 18, 0.65);
+  --shadow-drawer: -24px 0 60px rgba(3, 8, 18, 0.55);
+  --shadow-popover: 0 16px 34px rgba(3, 8, 18, 0.6);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--text-primary);
+  --color-muted: var(--text-muted);
   --color-surface: var(--surface);
   --color-surface-hover: var(--surface-hover);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-raised: var(--surface-raised);
+  --color-drawer: var(--drawer);
   --color-monogram-bg: var(--monogram-bg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-softer: var(--accent-softer);
+  --color-on-accent: var(--on-accent);
   --color-border-light: var(--border-light);
   --color-border-medium: var(--border-medium);
   --color-border-strong: var(--border-strong);
   --color-border-success: var(--border-success);
+  --color-border-check: var(--border-check);
   --color-hairline: var(--hairline);
+  --color-success-soft: var(--success-soft);
+  --color-success-soft-strong: var(--success-soft-strong);
+  --color-success-check: var(--success-check);
+  --color-success-border: var(--success-border);
   --color-text-primary: var(--text-primary);
   --color-text-muted: var(--text-muted);
   --color-accent: var(--accent);
@@ -55,10 +90,18 @@
   --font-sans: var(--font-sans);
   --font-display: var(--font-display);
   --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
+  --radius-soft: var(--radius-soft);
   --radius-stepper: var(--radius-stepper);
   --radius-button: var(--radius-button);
+  --radius-checkbox: var(--radius-checkbox);
+  --radius-pill: var(--radius-pill);
   --radius-monogram: var(--radius-monogram);
   --radius-session: var(--radius-session);
+  --radius-assign: var(--radius-assign);
+  --shadow-tooltip: var(--shadow-tooltip);
+  --shadow-drawer: var(--shadow-drawer);
+  --shadow-popover: var(--shadow-popover);
 }
 
 body {
@@ -66,4 +109,58 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   font-feature-settings: "cv01", "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Scrollable regions keep the design's clean edges (used by the workspace,
+   subject rail and the todo drawer). */
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Motion: quick and eased, matching the design's understated feel. */
+@utility animate-drawer-in {
+  animation: studyos-drawer-in 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@utility animate-fade-in {
+  animation: studyos-fade-in 200ms ease-out;
+}
+
+@utility animate-pop-in {
+  animation: studyos-pop-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes studyos-drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes studyos-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes studyos-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
