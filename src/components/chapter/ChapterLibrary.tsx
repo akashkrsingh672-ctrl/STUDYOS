@@ -1,37 +1,54 @@
-import ChapterAccordion from "./ChapterAccordion";
+"use client";
 
-const CHAPTERS = [
-  { number: "01", title: "Relations and Functions", stage: "Lectures 3-3" },
-  { number: "02", title: "Inverse Trigonometric Functions", stage: "Setup 3" },
-  { number: "03", title: "Matrices", stage: "Setup 3" },
-  { number: "04", title: "Determinants", stage: "PYQ 15", completed: true },
-  { number: "05", title: "Continuity and Differentiability", stage: "Setup 3" },
-  { number: "06", title: "Application of Derivatives", stage: "Setup 3" },
-];
+import ChapterAccordion from "@/components/chapter/ChapterAccordion";
+import { useStudy } from "@/lib/store";
 
+/**
+ * Chapter library for the active subject. Chapter names, order and count come
+ * from the Figma design (Physics / Chemistry / Mathematics, 4 chapters each).
+ */
 export default function ChapterLibrary() {
+  const { activeSubject, activeChapters, subjectProgress } = useStudy();
+  const progress = subjectProgress(activeSubject);
+  const count = String(activeChapters.length).padStart(2, "0");
+
+  const chip =
+    "flex items-center gap-2 rounded-button border border-border-medium bg-surface px-3 py-1 text-[11px] font-medium text-muted";
+
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-col">
-          <h2 className="font-semibold text-[24px] text-primary leading-none">Chapter library</h2>
-          <p className="text-muted text-[10px] leading-none mt-1">
+          <h2 className="font-semibold text-[24px] leading-none text-primary">
+            Chapter library
+          </h2>
+          <p className="mt-1 text-[10px] leading-none text-muted">
             Pick a chapter to start studying
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-button border border-hairline bg-surface px-3 py-1">
-          <span className="text-muted text-[11px] font-semibold">06</span>
-          <span className="text-muted text-[11px] font-medium">CHAPTERS</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={chip}>
+            <span className="font-semibold text-primary">{count}</span>
+            CHAPTERS
+          </span>
+          <span className={chip}>
+            <span className="font-semibold text-primary">{progress.syllabusPct}%</span>
+            SYLLABUS
+          </span>
+          <span className={chip}>
+            <span className="font-semibold text-primary">{progress.pyqPct}%</span>
+            PYQ
+          </span>
         </div>
       </div>
+
       <div className="flex flex-col gap-3">
-        {CHAPTERS.map((c) => (
+        {activeChapters.map((chapter, index) => (
           <ChapterAccordion
-            key={c.title}
-            chapterNumber={c.number}
-            chapterTitle={c.title}
-            stage={c.stage}
-            completed={c.completed}
+            key={chapter.id}
+            subject={activeSubject}
+            chapter={chapter}
+            defaultExpanded={index === 0}
           />
         ))}
       </div>

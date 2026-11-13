@@ -1,65 +1,71 @@
+"use client";
+
 import { useState } from "react";
+import LectureChecklist from "@/components/chapter/LectureChecklist";
+import PyqChecklist from "@/components/chapter/PyqChecklist";
+import { useStudy } from "@/lib/store";
+import type { ChapterSeed, SubjectName } from "@/lib/types";
 
 interface ChapterAccordionProps {
-  chapterNumber: string;
-  chapterTitle: string;
-  stage: string; // e.g. "Lectures 3-3", "Setup 3", "PYQ 15"
-  view?: "Collapsed" | "Expanded";
-  completed?: boolean;
+  subject: SubjectName;
+  chapter: ChapterSeed;
+  defaultExpanded?: boolean;
 }
 
+/**
+ * The design's "ChapterAccordionStudyFlow": 76px header (35px index badge,
+ * Space Grotesk title, 112x26 status pill, chevron) plus the 01 / THEORY and
+ * 02 / PYQ PRACTICE sections. The status pill copy comes from the Figma design
+ * and now reflects live progress.
+ */
 export default function ChapterAccordion({
-  chapterNumber,
-  chapterTitle,
-  stage,
-  view = "Collapsed",
-  completed = false,
+  subject,
+  chapter,
+  defaultExpanded = false,
 }: ChapterAccordionProps) {
-  const [expanded, setExpanded] = useState(view === "Expanded");
+  const { chapterProgress } = useStudy();
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const progress = chapterProgress(subject, chapter.id);
 
-  const parts = stage.split(" ");
-  const stageLabel = parts[0];
-  const stageValue = parts.slice(1).join(" ");
+  const complete = progress.status === "Chapter complete";
+  const showPyq = progress.theoryDone;
 
   return (
     <div
-      className={`border rounded-card overflow-hidden bg-surface transition-all duration-300 ${
-        completed ? "border-border-success" : "border-hairline"
+      className={`overflow-hidden rounded-card border bg-surface transition-colors duration-300 ${
+        complete ? "border-border-success" : "border-hairline"
       }`}
     >
       <button
-        onClick={() => setExpanded((p) => !p)}
-        className="flex w-full items-center justify-between px-4 py-4 hover:bg-surface-hover transition-colors"
+        type="button"
+        onClick={() => setExpanded((previous) => !previous)}
         aria-expanded={expanded}
+        className="flex min-h-[76px] w-full flex-wrap items-center gap-4 px-5 py-3 text-left transition-colors hover:bg-surface-hover"
       >
-        <div className="flex items-center gap-3">
-          <span className="text-muted text-[10px] font-semibold whitespace-nowrap">
-            {chapterNumber}
-          </span>
-          <span className="font-semibold text-[14px] text-primary leading-none">
-            {chapterTitle}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={`text-[10px] font-medium ${completed ? "text-success" : "text-muted"}`}>
-            {stageLabel} {stageValue}
-          </span>
-          <span className={`text-[10px] ${completed ? "text-success" : "text-accent"}`}>
-            {expanded ? "⌄" : "⌃"}
-          </span>
-        </div>
+        <span className="flex size-[35px] shrink-0 items-center justify-center rounded-control bg-accent-soft text-[12px] font-medium text-accent">
+          {chapter.index}
+        </span>
+        <span className="min-w-[160px] flex-1 truncate font-display text-[17px] font-medium text-primary">
+          {chapter.title}
+        </span>
+        <span
+          className={`flex h-[26px] w-[112px] shrink-0 items-center justify-center rounded-pill text-[10px] font-medium ${
+            complete ? "bg-success-soft-strong text-success" : "bg-accent-softer text-muted"
+          }`}
+        >
+          {progress.status}
+        </span>
+        <span className="shrink-0 text-[18px] leading-none text-muted" aria-hidden="true">
+          {expanded ? "⌃" : "⌄"}
+        </span>
       </button>
-      {expanded && (
-        <div className="border-t border-hairline bg-surface-hover/50 p-4">
-          <div className="flex gap-4 text-xs text-muted">
-            <span>3 lectures</span>
-            <span className="px-1">•</span>
-            <span>2 practice sets</span>
-            <span className="px-1">•</span>
-            <span>1 PYQ</span>
-          </div>
+
+      {expanded ? (
+        <div className="flex flex-col gap-4 border-t border-hairline px-5 pb-5 pt-4">
+          <LectureChecklist subject={subject} chapter={chapter} />
+          {showPyq ? <PyqChecklist subject={subject} chapter={chapter} /> : null}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

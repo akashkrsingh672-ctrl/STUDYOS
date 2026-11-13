@@ -1,56 +1,66 @@
-import { useState } from "react";
+"use client";
 
+import { formatMediumDate } from "@/lib/date";
+import { useStudy } from "@/lib/store";
+
+/**
+ * Top navigation from the design (monogram, brand, session status, preview
+ * date). The hamburger now opens the todo drawer (Chunk 4) and shows how many
+ * items for the selected day are still open.
+ */
 export default function TopNavigation() {
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const now = new Date();
-  const previewDate = now.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const { drawerOpen, toggleDrawer, today, selectedDate, todosFor, hydrated } = useStudy();
+
+  const date = selectedDate || today;
+  const openItems = todosFor(date).filter((todo) => !todo.completed).length;
 
   return (
-    <nav className="relative h-[66px] border-b border-hairline px-[40px] flex items-center justify-between shrink-0 z-10 bg-background">
+    <nav className="relative z-10 flex h-[66px] shrink-0 items-center justify-between border-b border-hairline bg-background px-[40px]">
       {/* Brand block */}
-      <div className="flex items-center gap-3 flex-shrink-0">
-        <div className="bg-monogram-bg border border-border-strong rounded-monogram size-[44px] flex items-center justify-center shrink-0">
-          <span className="font-display font-bold text-[30px] text-primary leading-none">
-            B
-          </span>
+      <div className="flex flex-shrink-0 items-center gap-3">
+        <div className="flex size-[44px] shrink-0 items-center justify-center rounded-monogram border border-border-strong bg-monogram-bg">
+          <span className="font-display text-[30px] font-bold leading-none text-primary">B</span>
         </div>
         <div className="flex-shrink-0">
-          <p className="font-display font-bold text-[25px] text-primary leading-none">
-            boardroom
-          </p>
-          <p className="text-muted text-[8px] leading-normal whitespace-nowrap">
+          <p className="font-display text-[25px] font-bold leading-none text-primary">boardroom</p>
+          <p className="text-[8px] leading-normal whitespace-nowrap text-muted">
             YOUR NEXT CHAPTER STARTS HERE
           </p>
         </div>
       </div>
 
       {/* Session status */}
-      <div className="flex flex-col items-center gap-1 flex-shrink-0 hidden md:flex">
-        <div className="border border-border-light rounded-session h-[28px] px-3 flex items-center gap-1">
-          <span className="font-semibold text-[10px] text-accent">
-            {"\u25CF"} FOCUS MODE, ON
-          </span>
+      <div className="hidden flex-shrink-0 flex-col items-center gap-1 md:flex">
+        <div className="flex h-[28px] items-center gap-1 rounded-session border border-border-light px-3">
+          <span className="text-[10px] font-semibold text-accent">{"\u25CF"} FOCUS MODE, ON</span>
         </div>
-        <p className="text-muted text-[10px] font-medium whitespace-nowrap">
-          STUDY PREVIEW &nbsp;/&nbsp; {previewDate}
+        <p className="text-[10px] font-medium whitespace-nowrap text-muted">
+          STUDY PREVIEW &nbsp;/&nbsp; {hydrated ? formatMediumDate(today) : ""}
         </p>
       </div>
 
-      {/* Right controls: hamburger (todo drawer) + preview date on mobile */}
-      <div className="flex items-center gap-4 flex-shrink-0">
+      {/* Right controls: todo drawer + preview date on mobile */}
+      <div className="flex flex-shrink-0 items-center gap-3">
         <button
-          onClick={() => setDrawerOpen((p) => !p)}
-          className="p-2 rounded-button text-muted hover:text-accent transition-colors shrink-0"
+          type="button"
+          onClick={toggleDrawer}
+          aria-expanded={drawerOpen}
+          aria-controls="todo-drawer"
           aria-label="Open todo drawer"
+          className="flex items-center gap-2 rounded-button border border-border-medium bg-surface px-3 py-[6px] text-muted transition-colors hover:border-border-strong hover:text-accent"
         >
-          <span className="text-[22px] leading-none block">☰</span>
+          <span className="text-[18px] leading-none" aria-hidden="true">
+            ☰
+          </span>
+          <span className="text-[10px] font-semibold tracking-wider">TODO</span>
+          {hydrated && openItems > 0 ? (
+            <span className="rounded-pill bg-accent-soft px-[7px] py-[1px] text-[9px] font-semibold text-accent">
+              {openItems}
+            </span>
+          ) : null}
         </button>
-        <p className="text-muted text-[10px] font-medium whitespace-nowrap hidden md:block">
-          STUDY PREVIEW &nbsp;/&nbsp; {previewDate}
+        <p className="hidden text-[10px] font-medium whitespace-nowrap text-muted md:block">
+          STUDY PREVIEW &nbsp;/&nbsp; {hydrated ? formatMediumDate(today) : ""}
         </p>
       </div>
     </nav>
