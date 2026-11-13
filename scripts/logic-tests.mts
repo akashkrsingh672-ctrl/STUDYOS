@@ -43,6 +43,7 @@ import {
   toDateKey,
 } from "../src/lib/date.ts";
 import { SUBJECTS, chaptersOf, findChapter } from "../src/lib/curriculum.ts";
+import { EXAM_DATE, daysUntilExam } from "../src/lib/exam.ts";
 import {
   STORAGE_KEY,
   STORAGE_VERSION,
@@ -144,6 +145,15 @@ test("month grid is Monday-first and complete", () => {
   assert.equal(days.length, 30);
   assert.equal(days[0], "2026-11-01");
   assert.equal(days[days.length - 1], "2026-11-30");
+});
+
+test("the exam countdown targets 16 Feb 2027", () => {
+  assert.equal(EXAM_DATE, "2027-02-16");
+  assert.equal(daysUntilExam("2026-11-13"), 95);
+  assert.equal(daysUntilExam("2027-02-15"), 1);
+  assert.equal(daysUntilExam("2027-02-16"), 0);
+  assert.equal(daysUntilExam("2027-03-01"), 0); // never negative
+  assert.equal(daysUntilExam(""), null); // not hydrated yet
 });
 
 /* -------------------------------------------------------------- curriculum */
