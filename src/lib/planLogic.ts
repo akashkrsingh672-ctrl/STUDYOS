@@ -1,6 +1,8 @@
 import type {
   ChapterStatus,
   DailyLogEntry,
+  PyqChapterStats,
+  PyqSectionStats,
   PyqSetState,
   Todo,
   TodoSource,
@@ -16,6 +18,8 @@ import type {
  */
 export const MAX_COUNT = 15;
 export const MIN_COUNT = 0;
+/** Questions can be planned in far larger numbers than lectures (cap hidden in UI). */
+export const MAX_QUESTIONS = 100;
 
 export function clampCount(value: number, max: number = MAX_COUNT): number {
   if (!Number.isFinite(value)) return MIN_COUNT;
@@ -23,6 +27,11 @@ export function clampCount(value: number, max: number = MAX_COUNT): number {
   if (rounded < MIN_COUNT) return MIN_COUNT;
   if (rounded > max) return max;
   return rounded;
+}
+
+/** Clamps a PYQ section total / allocation to 0-100. */
+export function clampQuestions(value: number): number {
+  return clampCount(value, MAX_QUESTIONS);
 }
 
 export function pad2(value: number): string {
@@ -67,16 +76,18 @@ export function dayStats(todos: Todo[]): DayStats {
   let questionsPracticed = 0;
 
   for (const todo of todos) {
-    if (todo.kind !== "pyq" || !todo.completed) continue;
-    questionsPracticed += todo.amount;
+    if (todo.kind !== "pyq") continue;
+    const done = completedQuestionsOf(todo);
+    if (done <= 0) continue;
+    questionsPracticed += done;
     const current = practices.get(todo.chapterId);
     if (current) {
-      current.questions += todo.amount;
+      current.questions += done;
     } else {
       practices.set(todo.chapterId, {
         chapterTitle: todo.chapterTitle,
         subject: todo.subject,
-        questions: todo.amount,
+        questions: done,
       });
     }
   }
@@ -163,11 +174,19 @@ export function createPyqTodo(input: {
   chapterId: string;
   chapterTitle: string;
   set: PyqSetState;
+  /** Questions allocated to this day (defaults to the section total). */
+  amount?: number;
+  completedCount?: number;
   date: string;
   source: TodoSource;
   createdAt: string;
   completed?: boolean;
 }): Todo {
+  const amount = clampQuestions(input.amount ?? input.set.total);
+  const completedCount = Math.max(
+    0,
+    Math.min(amount, Math.round(input.completedCount ?? (input.completed ? amount : 0))),
+  );
   return {
     id: makeTodoId(`${input.chapterId}-pyq-${input.set.id}`, input.createdAt),
     kind: "pyq",
@@ -175,11 +194,12 @@ export function createPyqTodo(input: {
     chapterId: input.chapterId,
     chapterTitle: input.chapterTitle,
     label: input.set.label,
-    amount: input.set.total,
+    amount,
+    completedCount,
     setId: input.set.id,
     date: input.date,
     source: input.source,
-    completed: input.completed ?? false,
+    completed: amount > 0 && completedCount >= amount,
     createdAt: input.createdAt,
   };
 }
@@ -225,12 +245,32 @@ export function completedQuestionCount(
   return todos
     .filter(
       (todo) =>
-        todo.kind === "pyq" &&
-        todo.completed &&
-        todo.subject === subject &&
-        todo.chapterId === chapterId,
+        todo.kind === "pyq" && todo.subject === subject && todo.chapterId === chapterId,
     )
-    .reduce((sum, todo) => sum + todo.amount, 0);
+    .reduce((sum, todo) => sum + completedQuestionsOf(todo), 0);
+}
+
+/**
+ * Questions actually done for a log item. PYQ rows carry a partial counter;
+ * lectures/custom rows are all-or-nothing.
+ */
+export function completedQuestionsOf(todo: Todo): number {
+  if (todo.kind !== "pyq") return todo.completed ? todo.amount : 0;
+  const count = todo.completedCount ?? (todo.completed ? todo.amount : 0);
+  return Math.max(0, Math.min(clampQuestions(todo.amount), Math.round(count)));
+}
+
+/** Keeps a PYQ todo internally consistent after hydration or a mutation. */
+export function normalizePyqTodo(todo: Todo): Todo {
+  if (todo.kind !== "pyq") return todo;
+  const amount = clampQuestions(todo.amount);
+  const count = Math.max(0, Math.min(amount, completedQuestionsOf(todo)));
+  return {
+    ...todo,
+    amount,
+    completedCount: count,
+    completed: amount > 0 && count >= amount,
+  };
 }
 
 export function isLectureTodoOf(
@@ -346,24 +386,170 @@ export function lectureRowStatus(
   return pending ? "queued" : "idle";
 }
 
-/** idle -> queued -> done for a PYQ set row. */
-export function pyqRowStatus(
+/** Per-section question progress for the chapter rows and allocation panel. */
+export function pyqSectionStats(
+  todos: Todo[],
+  input: {
+    subject: string;
+    chapterId: string;
+    id: string;
+    label: string;
+    total: number;
+    done: boolean;
+  },
+): PyqSectionStats {
+  const total = clampQuestions(input.total);
+  const matching = todos.filter((todo) =>
+    isPyqTodoOf(todo, input.subject, input.chapterId, input.id),
+  );
+
+  // A pre-allocation "done" mark means the whole section was finished.
+  const legacyDone = input.done && total > 0;
+  const completedRaw = legacyDone
+    ? total
+    : matching.reduce((sum, todo) => sum + completedQuestionsOf(todo), 0);
+  const completed = Math.min(total, completedRaw);
+
+  const queuedRaw = legacyDone
+    ? 0
+    : matching.reduce(
+        (sum, todo) => sum + Math.max(0, todo.amount - completedQuestionsOf(todo)),
+        0,
+      );
+  const queued = Math.min(queuedRaw, Math.max(0, total - completed));
+
+  return {
+    id: input.id,
+    label: input.label,
+    total,
+    completed,
+    queued,
+    remaining: Math.max(0, total - completed - queued),
+    pct: gaugePct(completed, total),
+  };
+}
+
+/** Rolls every section of one chapter together (bars + chapter summary). */
+export function pyqChapterStats(
+  todos: Todo[],
+  subject: string,
+  chapterId: string,
+  sets: { id: string; label: string; total: number; done: boolean }[],
+): PyqChapterStats {
+  const sections = sets.map((set) => pyqSectionStats(todos, { ...set, subject, chapterId }));
+  const total = sections.reduce((sum, section) => sum + section.total, 0);
+  const completed = sections.reduce((sum, section) => sum + section.completed, 0);
+  const queued = sections.reduce((sum, section) => sum + section.queued, 0);
+
+  return {
+    sections,
+    completed,
+    total,
+    queued,
+    remaining: Math.max(0, total - completed - queued),
+    pct: gaugePct(completed, total),
+    allDone: total > 0 && completed >= total,
+  };
+}
+
+export interface PyqAllocation {
+  set: PyqSetState;
+  /** How many questions of this section to add to the chosen day. */
+  count: number;
+}
+
+/**
+ * Adds (or tops up) one dated Todo per section. An existing unfinished row for
+ * the same section and day is extended instead of duplicated, so the same day
+ * can be pressed again without losing progress.
+ */
+export function addPyqAllocations(
   todos: Record<string, Todo[]>,
-  done: boolean,
+  input: {
+    subject: Todo["subject"];
+    chapterId: string;
+    chapterTitle: string;
+    date: string;
+    source: TodoSource;
+    allocations: PyqAllocation[];
+    createdAt: string;
+  },
+): Record<string, Todo[]> {
+  if (!input.date) return todos;
+  const items = [...(todos[input.date] ?? [])];
+
+  for (const { set, count } of input.allocations) {
+    const amount = clampQuestions(count);
+    if (amount <= 0) continue;
+
+    const index = items.findIndex(
+      (todo) => isPyqTodoOf(todo, input.subject, input.chapterId, set.id) && !todo.completed,
+    );
+    if (index >= 0) {
+      const existing = items[index];
+      items[index] = normalizePyqTodo({ ...existing, amount: existing.amount + amount });
+      continue;
+    }
+
+    items.push(
+      createPyqTodo({
+        subject: input.subject,
+        chapterId: input.chapterId,
+        chapterTitle: input.chapterTitle,
+        set,
+        amount,
+        date: input.date,
+        source: input.source,
+        createdAt: input.createdAt,
+      }),
+    );
+  }
+
+  if (items.length === 0) return todos;
+  return { ...todos, [input.date]: items };
+}
+
+/**
+ * Trims a section's allocations when its total is lowered: the oldest days keep
+ * their share first, completed counts clamp to the new total, and rows that no
+ * longer fit are dropped entirely. Empty days disappear.
+ */
+export function trimPyqAllocation(
+  todos: Record<string, Todo[]>,
   subject: string,
   chapterId: string,
   setId: string,
-): RowStatus {
-  if (done) return "done";
-  let pending = false;
-  for (const date of Object.keys(todos)) {
+  newTotal: number,
+): Record<string, Todo[]> {
+  const total = clampQuestions(newTotal);
+  const next: Record<string, Todo[]> = {};
+  let capacity = total;
+
+  for (const date of Object.keys(todos).sort()) {
+    const kept: Todo[] = [];
     for (const todo of todos[date] ?? []) {
-      if (!isPyqTodoOf(todo, subject, chapterId, setId)) continue;
-      if (todo.completed) return "done";
-      pending = true;
+      if (!isPyqTodoOf(todo, subject, chapterId, setId)) {
+        kept.push(todo);
+        continue;
+      }
+      if (capacity <= 0) continue;
+
+      const normalized = normalizePyqTodo(todo);
+      const amount = Math.min(normalized.amount, capacity);
+      if (amount <= 0) continue;
+      const completed = Math.min(normalized.completedCount ?? 0, amount);
+      capacity -= amount;
+      kept.push({
+        ...normalized,
+        amount,
+        completedCount: completed,
+        completed: completed >= amount,
+      });
     }
+    if (kept.length > 0) next[date] = kept;
   }
-  return pending ? "queued" : "idle";
+
+  return next;
 }
 
 /**
@@ -415,13 +601,16 @@ export interface SubjectRollup {
   completedLectures: number;
   setsTotal: number;
   setsDone: number;
+  questionsTotal: number;
+  questionsCompleted: number;
   syllabusPct: number;
   pyqPct: number;
 }
 
 /**
- * Subject-wise roll-up for the Syllabus / PYQ gauges (Chunk 1 keeps those
- * subjectwise while the daily goal becomes universal).
+ * Subject-wise roll-up for the Syllabus / PYQ gauges. Lectures count the
+ * history + completed-todo union; PYQ is question-based now (completed
+ * questions / configured questions) so the ring matches the section bars.
  */
 export function subjectRollup(
   subjectTodos: Todo[],
@@ -430,13 +619,15 @@ export function subjectRollup(
     id: string;
     lectures: number;
     doneHistory: number[];
-    sets: { id: string; done: boolean }[];
+    sets: { id: string; label: string; total: number; done: boolean }[];
   }[],
 ): SubjectRollup {
   let plannedLectures = 0;
   let completedLectures = 0;
   let setsTotal = 0;
   let setsDone = 0;
+  let questionsTotal = 0;
+  let questionsCompleted = 0;
 
   for (const chapter of chapters) {
     const total = clampCount(chapter.lectures);
@@ -448,8 +639,13 @@ export function subjectRollup(
       chapter.id,
       total,
     ).length;
+
     setsTotal += chapter.sets.length;
     setsDone += chapter.sets.filter((set) => set.done).length;
+
+    const pyq = pyqChapterStats(subjectTodos, subject, chapter.id, chapter.sets);
+    questionsTotal += pyq.total;
+    questionsCompleted += pyq.completed;
   }
 
   return {
@@ -457,7 +653,9 @@ export function subjectRollup(
     completedLectures,
     setsTotal,
     setsDone,
+    questionsTotal,
+    questionsCompleted,
     syllabusPct: gaugePct(completedLectures, plannedLectures),
-    pyqPct: gaugePct(setsDone, setsTotal),
+    pyqPct: gaugePct(questionsCompleted, questionsTotal),
   };
 }

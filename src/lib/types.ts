@@ -33,15 +33,17 @@ export interface SubjectSeed {
 
 /** Persisted per-PYQ-set state. */
 export interface PyqSetState extends PyqSetSeed {
-  /** Question total for the set (0-15). */
+  /** Section question total (0-100). A conserved property, not a plan. */
   total: number;
   /**
-   * Finished for the chapter's PYQ progress. Set by the Todo checkbox (a queued
-   * set) or by the chapter checkbox when NO day is selected (a historical,
-   * already-done mark). Ticking a queued row never sets this.
+   * Legacy "whole section done" mark from before per-question allocations.
+   * Still counted as a full completion so older saves keep their progress, but
+   * the current UI never writes it (questions are completed through the Todo).
    */
   done: boolean;
+  /** @deprecated Allocations now live in `todos`; kept for storage compatibility. */
   assignedDate: string | null;
+  /** @deprecated Allocations now live in `todos`; kept for storage compatibility. */
   assignedSource: TodoSource | null;
 }
 
@@ -69,8 +71,14 @@ export interface Todo {
   chapterId: string;
   chapterTitle: string;
   label: string;
-  /** Lectures: 1. PYQ: number of questions in the set. */
+  /** Lectures: 1. PYQ: number of questions allocated to this day (0-100). */
   amount: number;
+  /**
+   * PYQ only: how many of `amount` questions are actually done (0..amount).
+   * Lets a learner log partial progress; `completed` only turns true once this
+   * reaches `amount`.
+   */
+  completedCount?: number;
   /** 1-based position for lecture checklists. */
   lectureIndex?: number;
   setId?: string;
@@ -108,6 +116,34 @@ export interface StudyState {
   subjects: Record<SubjectName, SubjectProgress>;
   /** subject name -> chapter id -> chapter state */
   chapters: Record<string, Record<string, ChapterState>>;
+}
+
+/** Per-section PYQ progress for the chapter question rows and allocation panel. */
+export interface PyqSectionStats {
+  id: string;
+  label: string;
+  /** Configured section total (0-100). */
+  total: number;
+  /** Questions actually completed (legacy done counts as the full total). */
+  completed: number;
+  /** Allocated to a day but not yet completed. */
+  queued: number;
+  /** Headroom left to allocate: total - completed - queued. */
+  remaining: number;
+  /** completed / total, 0-100. */
+  pct: number;
+}
+
+/** Chapter-level roll-up of every PYQ section. */
+export interface PyqChapterStats {
+  sections: PyqSectionStats[];
+  completed: number;
+  total: number;
+  queued: number;
+  remaining: number;
+  pct: number;
+  /** True when every configured question is done. */
+  allDone: boolean;
 }
 
 /** Status pill copy taken from the Figma design. */

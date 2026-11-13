@@ -28,7 +28,6 @@ export default function ChapterAccordion({
   const progress = chapterProgress(subject, chapter.id);
 
   const complete = progress.status === "Chapter complete";
-  const showPyq = progress.theoryDone;
 
   return (
     <div
@@ -63,7 +62,11 @@ export default function ChapterAccordion({
       {expanded ? (
         <div className="flex flex-col gap-4 border-t border-hairline px-5 pb-5 pt-4">
           <LectureChecklist subject={subject} chapter={chapter} />
-          {showPyq ? <PyqChecklist subject={subject} chapter={chapter} /> : null}
+          <PyqChecklist
+            subject={subject}
+            chapter={chapter}
+            defaultOpen={progress.theoryDone}
+          />
         </div>
       ) : null}
     </div>

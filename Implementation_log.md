@@ -290,4 +290,57 @@ Request: change the board-exam data behind the sidebar countdown to **16 Februar
 
 Verification: `npm test` **28/28**, `npm run lint` clean, `npm run build` exit 0 (4/4 static pages).
 
+---
+
+## Session 4 — 2026-11-13 · PYQ before-theory, question bars, day assignment, partial progress
+
+Request: expose the PYQ section before lectures finish (collapsed until clicked / auto-open after theory), per-section question totals up to 100, progress bars per section, day-first question assignment with per-section counts, both batch and partial completion in the Todo, question-based PYQ ring, lecture whole-row click.
+
+### 1. Behaviour model implemented
+
+| Rule | Implementation |
+|---|---|
+| PYQ reachable before theory | `ChapterAccordion` always renders `<PyqChecklist defaultOpen={theoryDone} />`; collapsed before theory, expanded after |
+| Question cap 100 per section (not shown in UI) | `MAX_QUESTIONS = 100`, `clampQuestions()`; lecture `Stepper` stays at 15 |
+| Each section: progress bar + `completed / total` | `pyqSectionStats` / `pyqChapterStats`; bars use `bg-surface-muted` track + `bg-success` fill |
+| Press Today / Tomorrow / Custom → set how many per section | `PyqAllocationPanel` lists every section with a stepper capped at remaining headroom; confirm writes one Todo per section |
+| Same day pressed again tops up; different day = new row | `addPyqAllocations` extends an existing unfinished row on the same day |
+| Partial progress in Todo (counter ±) and batch (checkbox = all / none) | `setPyqProgress` + `toggleTodo` both write `completedCount`; `allDone` only when fully complete |
+| PYQ ring question-based | `subjectRollup.pyqPct = Σ completed / Σ total`; legacy `done` still counts as full |
+| Lower section total trims allocations | `trimPyqAllocation` keeps oldest days, clamps completed, drops overflow |
+| Lecture whole row toggles (click + Enter/Space) | Row is `role="checkbox" tabIndex={0}`; check box is decorative |
+
+### 2. Files changed
+
+| File | Change |
+|---|---|
+| `src/lib/types.ts` | `PyqSetState.total` documented 0-100; `done`/`assigned*` deprecated (kept for storage compat); new `Todo.completedCount?: number`; new `PyqSectionStats` / `PyqChapterStats` |
+| `src/lib/planLogic.ts` | New `MAX_QUESTIONS`, `clampQuestions`, `completedQuestionsOf`, `normalizePyqTodo`, `pyqSectionStats`, `pyqChapterStats`, `PyqAllocation`, `addPyqAllocations`, `trimPyqAllocation`; `dayStats`/`completedQuestionCount` partial-aware; `subjectRollup` question-based `pyqPct`; `pyqRowStatus` removed |
+| `src/lib/state.ts` | `normalizeState` normalizes PYQ todos via `normalizePyqTodo` and drops zero-amount rows; `createPyqSetState` uses `clampQuestions`; roll-up fixtures pass `label`/`total` |
+| `src/lib/storage.ts` | `STORAGE_VERSION` 2 → 3 |
+| `src/lib/store.tsx` | `ChapterProgress` gains question fields + `pyq`; new `addPyqAllocations`/`setPyqProgress`/`pyqStats`; `setPyqTotal` trims allocations instead of rewriting amounts; `toggleTodo` is batch for PYQ; removed `togglePyqDone`/`assignPyq`/`pyqRowStatus` |
+| `src/components/chapter/PyqChecklist.tsx` | Rewritten: disclosure header, section totals (max 100), prominent Today/Tomorrow/Custom control, allocation panel, per-section bars, chapter summary |
+| `src/components/chapter/PyqAllocationPanel.tsx` | New: "set how many questions per section for this day" popover with per-section steppers capped at remaining |
+| `src/components/chapter/LectureChecklist.tsx` | Whole-row click (click + Enter/Space); check box decorative |
+| `src/components/chapter/ChapterAccordion.tsx` | PYQ always rendered (collapsed until theory done) |
+| `src/components/todo/TodoList.tsx` | PYQ rows get a `− X / Y +` counter (partial) plus batch checkbox; `TodoList` passes `onProgress` |
+| `src/components/dashboard/TodayChecklist.tsx` | Passes `setPyqProgress` to `TodoList` |
+| `src/components/todo/TodoDrawer.tsx` | Passes `setPyqProgress` to `TodoList` |
+| `scripts/logic-tests.mts` | 6 new tests: section stats/legacy done, 100 cap vs 15, top-up + multi-day + enforcement, trim-on-lower-total, partial progress stats, chapter roll-up; updated roll-up fixtures for new `label`/`total` shape; backfill + zero-row-drop migration tests |
+
+### 3. Verification (2026-11-13)
+
+| Gate | Result |
+|---|---|
+| `npx tsc --noEmit` | ✅ 0 errors |
+| `npm test` | ✅ **35 passed, 0 failed** |
+| `npm run lint` | ✅ clean (0 errors, 0 warnings) |
+| `npm run build` | ✅ compiled + typechecked + 4/4 static pages |
+| SSR smoke (`next start -p 3100`) | ✅ 200, 24,826 bytes, expected markers present, old exam-date copy absent |
+
+### 4. Outstanding after Session 4
+
+- Manual browser pass (checklist extended in `Tests_performed.md`).
+- Figma "Prototype hint" + "Study greeting" copy still not captured (Session 1 deviation 6).
+- No backend: persistence remains `localStorage` only.
 

@@ -10,10 +10,10 @@ Figma (visual authority): `https://www.figma.com/design/CebX98K0BKepBsWee0uE17/U
 | Gate | Command | Result |
 |---|---|---|
 | Type check | `npx tsc --noEmit` | ✅ 0 errors |
-| Logic/unit tests | `npm test` | ✅ **28 passed, 0 failed** |
+| Logic/unit tests | `npm test` | ✅ **35 passed, 0 failed** |
 | Lint | `npm run lint` | ✅ clean (0 errors, 0 warnings) |
 | Production build | `npm run build` | ✅ compiles + typechecks + prerenders `/` |
-| SSR smoke test | `next start -p 3100` + HTTP fetch | ✅ 200, 24,412 bytes, all sections present, correct negatives |
+| SSR smoke test | `next start -p 3100` + HTTP fetch | ✅ 200, 24,826 bytes, all sections present, correct negatives |
 | Manual browser pass | — | ⏳ pending (see `Tests_performed.md`) |
 
 > Baseline note: before this session the shell **did not build at all** (font `@import` order +
@@ -43,8 +43,23 @@ Figma (visual authority): `https://www.figma.com/design/CebX98K0BKepBsWee0uE17/U
 | 4.6 | Todo surfaces: completion copy hint (drawer + dashboard) | ✅ done |
 | 5 | `STORAGE_VERSION` 1 → 2 with a v1 → v2 migration (no data loss) | ✅ done (tested) |
 | 6 | Edge cases: single-day queue, union cap, un-complete reversal, trim, idempotence | ✅ done (tested) |
-| 7 | Tests, lint, build, SSR smoke, tracking docs, commit | ✅ done — suite 28/28 |
+| 7 | Tests, lint, build, SSR smoke, tracking docs, commit | ✅ done — suite 35/35 |
 | 8 | Optional "Clear day" control | ⛔ not in scope (not requested) |
+
+## Change Plan 3 coverage (`pyq-before-theory + question bars + day assignment + partial progress`)
+
+| Item | Status | Where |
+|---|---|---|
+| PYQ section visible before theory (collapsed until clicked / auto-open after theory) | ✅ done | `components/chapter/ChapterAccordion.tsx`, `components/chapter/PyqChecklist.tsx` |
+| Question totals up to 100 per section (cap hidden in UI) | ✅ done | `lib/planLogic.ts` (`MAX_QUESTIONS`, `clampQuestions`), `Stepper` max prop |
+| Per-section progress bars (`completed / total` + `% DONE`) | ✅ done | `lib/planLogic.ts` (`pyqSectionStats`, `pyqChapterStats`), `components/chapter/PyqChecklist.tsx` |
+| Today / Tomorrow / Custom opens an allocation panel asking per-section counts | ✅ done | `components/chapter/PyqAllocationPanel.tsx`, `lib/store.tsx` (`addPyqAllocations`) |
+| Same day tops up; different day = new row; never over-allocates | ✅ done | `lib/planLogic.ts` (`addPyqAllocations`, `trimPyqAllocation`) |
+| Partial progress counter `− X / Y +` and batch checkbox in Todo | ✅ done | `components/todo/TodoList.tsx`, `lib/store.tsx` (`setPyqProgress`) |
+| PYQ ring question-based (`Σ completed / Σ total`) | ✅ done | `lib/planLogic.ts` (`subjectRollup`), `lib/store.tsx` (`chapterProgress`) |
+| Lower section total trims allocations (oldest days first) | ✅ done | `lib/planLogic.ts` (`trimPyqAllocation`), `lib/store.tsx` (`setPyqTotal`) |
+| Lecture whole row toggles (click + Enter/Space) | ✅ done | `components/chapter/LectureChecklist.tsx` |
+| `STORAGE_VERSION` 2 → 3 migration, backfills `completedCount`, no data loss | ✅ done | `lib/storage.ts`, `lib/state.ts`, `lib/planLogic.ts` (`normalizePyqTodo`) |
 
 ## Requirements traceability
 

@@ -22,7 +22,7 @@ required; no git repo existed → `git init`.
 
 Both build blockers were fixed during the realignment and are covered by T4.
 
-## T2 · Logic + persistence tests — ✅ PASSED (28/28)
+## T2 · Logic + persistence tests — ✅ PASSED (35/35)
 
 ```bash
 npm test
@@ -59,8 +59,16 @@ StudyOS logic tests
   PASS  un-completing a todo drops daily and syllabus progress (Plan 2)
   PASS  a shorter lecture total trims only the vanished rows (Plan 2)
   PASS  a v1 log migrates to v2 without losing data (Plan 2)
+  PASS  a question section counts partial, queued and remaining questions (Plan 3)
+  PASS  questions are capped at 100 per section, lectures still at 15 (Plan 3)
+  PASS  allocating questions writes one dated row per section and tops it up (Plan 3)
+  PASS  lowering a section total trims the newest allocations first (Plan 3)
+  PASS  partial question progress feeds the day stats but not "all done" (Plan 3)
+  PASS  a chapter rolls its question sections together (Plan 3)
+  PASS  a v2 log backfills question progress without losing data (Plan 3)
+  PASS  a stale zero-question row is dropped on normalize (Plan 3)
 
-28 passed, 0 failed
+35 passed, 0 failed
 ```
 
 Key assertions worth calling out:
@@ -76,6 +84,9 @@ Key assertions worth calling out:
   daily **and** syllabus progress; a v1 saved log upgrades to v2 with no data loss.
 - Exam countdown: `EXAM_DATE = "2027-02-16"`; 13 Nov 2026 → **95** days, 15 Feb 2027 → 1, exam day → 0,
   a past date clamps to 0, and an un-hydrated (empty) day returns `null`.
+- Change Plan 3: question sections cap at 100 per section while lectures stay at 15; one day-press
+  tops up that day's row instead of duplicating; lowering a section total trims the newest allocation;
+  partial progress counts toward the day but not "all done" until the full amount is done.
 
 ## T3 · Lint — ✅ PASSED (clean)
 
@@ -85,7 +96,7 @@ npm run lint
 `eslint` → no output (0 errors, 0 warnings) after fixing one unused variable and adding the
 documented `react-hooks/set-state-in-effect` exception on the hydration line.
 Re-run after Change Plan 2: **exit 0, 0 problems** (the earlier parse failure in
-`scripts/logic-tests.mts` is covered in T7).
+`scripts/logic-tests.mts` is covered in T7). Re-run after Change Plan 3: **exit 0, 0 problems**.
 
 ## T4 · Production build — ✅ PASSED
 
@@ -97,14 +108,15 @@ npm run build
 - Cache Components enabled
 - Partial Prefetching enabled
   Creating an optimized production build ...
-✓ Compiled successfully in 3.5s
+✓ Compiled successfully in 2.6s
   Running TypeScript ...
-  Finished TypeScript in 4.9s ...
-✓ Generating static pages (4/4) in 1495ms
+  Finished TypeScript in 2.6s ...
+✓ Generating static pages (4/4) in 1020ms
 Route (app)   ┌ ○ /        └ ○ /_not-found      ○ (Static) prerendered as static content
 ```
 This also proves the strict TypeScript pass over every new module and that `/` still prerenders.
 Re-run after Change Plan 2: **exit 0** — compiled in 3.5 s, TypeScript in 4.9 s, 4/4 pages.
+Re-run after Change Plan 3: **exit 0** — compiled in 2.6 s, TypeScript in 2.6 s, 4/4 pages.
 
 ### T4b · Type check — ✅ PASSED
 
@@ -119,7 +131,7 @@ Exit 0 with **0 errors** across the app and `scripts/logic-tests.mts` (this gate
 ```bash
 node node_modules/next/dist/bin/next start -p 3100     # then HTTP GET http://localhost:3100
 ```
-Response: **200**, 24,412 bytes of HTML (Session 2 re-run). Content markers:
+Response: **200**, 24,826 bytes of HTML (Session 4 re-run). Content markers:
 
 | Marker | Expected | Actual |
 |---|---|---|
@@ -151,7 +163,7 @@ The server was stopped after the check.
 | `app/layout.tsx` metadata, fonts, background/foreground | ✅ untouched |
 | `next.config.ts`, `eslint.config.mjs`, `README.md` | ✅ untouched |
 
-## T7 · Change Plan 2 — history vs. the queue — ✅ PASSED (8/8)
+## T7 · Change Plan 2 — history vs. the queue — ✅ PASSED (7/7)
 
 Scope: `2ndchangesplan.md` §7. Every assertion runs through the same modules the app uses.
 
@@ -159,7 +171,6 @@ Scope: `2ndchangesplan.md` §7. Every assertion runs through the same modules th
 |---|---|
 | historical marks and completed todos merge toward the syllabus | `lectureDoneIndices([lecture 2 done], history [1], total 4)` → `[1,2]`; count 2; an out-of-range history mark `9` is ignored |
 | a lecture row is idle, queued then done | pending todo → `queued`; no todo → `idle`; a history mark or a completed todo → `done` |
-| a PYQ row mirrors the same idle/queued/done flow | same three states; `findPyqTodo` returns the newest dated item; `findLectureTodo` returns `null` when absent |
 | moving a pending item to another day never duplicates it | the id is preserved, the old day is dropped, a completed item is not moved |
 | subject roll-up counts historical lecture marks | `doneHistory [1,2]` with `lectures 4` → 2 completed, 50% |
 | un-completing a todo drops daily and syllabus progress | `dayStats` 1 → 0 completed (target stays 2) and `subjectRollup` 1 → 0 |
@@ -177,6 +188,22 @@ The first implementation pass left the new test block spliced inside two existin
 the existing tests. `npx tsc --noEmit` then reported **0 errors**.
 
 ---
+
+## T8 · Change Plan 3 — PYQ before theory, question bars, day assignment, partial progress — ✅ PASSED (8/8)
+
+Scope: the question-side changes approved with Change Plan 3. Every assertion runs through the same
+modules the app uses.
+
+| Test | What it proves |
+|---|---|
+| a question section counts partial, queued and remaining questions | `completedQuestionsOf` → 4 of 10 done; `pyqSectionStats` → completed 4, queued 12, remaining 4 of 20; legacy `done` → 20/20 |
+| questions are capped at 100 per section, lectures still at 15 | `clampQuestions(101)` → 100, `clampQuestions(9999)` → 100, `clampCount(99)` → 15 |
+| allocating questions writes one dated row per section and tops it up | same-day press extends the row (10 + 5 → 15, one row); a second day gets its own row; 2 rows total |
+| lowering a section total trims the newest allocations first | total 12 keeps oldest day (10) and shrinks newest (10 → 2); total 0 drops both rows |
+| partial question progress feeds day stats but not "all done" | `questionsPracticed` = 6 with `allDone=false`; full → 10 with `allDone=true` |
+| a chapter rolls its question sections together | 10 + 4 = 14 total, 6 completed → 43%, `allDone=false` |
+| a v2 log backfills question progress without losing data | `hydrateState` bumps version to 3, backfills `completedCount` from `completed`, keeps `moraleShown`, `questionsPracticed` = 6 |
+| a stale zero-question row is dropped on normalize | `normalizePyqTodo` clamps `amount` to 0 and `completed` to false; `dayStats` = 0 practiced |
 
 ## Pending — manual browser checklist (needs a human)
 
@@ -215,4 +242,14 @@ Run `npm run dev` and confirm:
     honoured and the state is rewritten as version 2.
 16. Copy hints: the dashboard list shows "Tick an item here to complete it — the daily goal and
     syllabus update together." and the drawer footer shows "Tick to complete - saved in your browser".
+17. Before lectures are done: open a chapter accordion → "02 / PYQ PRACTICE" is present but
+    collapsed (only its summary line shows); click it to expand.
+18. After lectures are done: the PYQ section starts expanded; each section shows a progress bar
+    with `X / Y` and `N queued`.
+19. Set section totals (each stepper goes past 15 — no "100" copy shown) → press Today → a panel
+    asks how many questions from each section for today → confirm → those questions appear as
+    pending items in today's Todo / drawer, one row per section.
+20. Press Today again → the same day's unfinished rows grow instead of duplicating; press Tomorrow
+    → a separate row appears for tomorrow.
+21. In the Todo: click the counter `+`/`−` to log partial progress (the checkbox still ticks all / unticks all); lowering a section total shrinks the newest day's row first.
 

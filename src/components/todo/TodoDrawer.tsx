@@ -23,6 +23,7 @@ export default function TodoDrawer() {
     todosFor,
     statsFor,
     toggleTodo,
+    setPyqProgress,
     addTodo,
     quote,
     moraleShownFor,
@@ -207,7 +208,11 @@ export default function TodoDrawer() {
               above.
             </p>
           ) : (
-            <TodoList todos={todos} onToggle={(todoId) => toggleTodo(selectedDate, todoId)} />
+            <TodoList
+              todos={todos}
+              onToggle={(todoId) => toggleTodo(selectedDate, todoId)}
+              onProgress={(todoId, count) => setPyqProgress(selectedDate, todoId, count)}
+            />
           )}
 
           {!celebrate && stats.allDone ? (

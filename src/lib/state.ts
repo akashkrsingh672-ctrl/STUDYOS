@@ -2,8 +2,10 @@ import { DEFAULT_CHAPTER_LECTURES, SUBJECTS } from "./curriculum.ts";
 import {
   buildDailyLog,
   clampCount,
+  clampQuestions,
   emptyDailyLog,
   flattenTodos,
+  normalizePyqTodo,
   subjectRollup,
 } from "./planLogic.ts";
 import { STORAGE_VERSION } from "./storage.ts";
@@ -15,12 +17,13 @@ import type {
   StudyState,
   SubjectName,
   SubjectProgress,
+  Todo,
 } from "./types";
 
 export function createPyqSetState(pyq: ChapterSeed["pyqs"][number]): PyqSetState {
   return {
     ...pyq,
-    total: clampCount(pyq.defaultTotal),
+    total: clampQuestions(pyq.defaultTotal),
     done: false,
     assignedDate: null,
     assignedSource: null,
@@ -90,17 +93,18 @@ export function createInitialState(): StudyState {
  * the single source of truth.
  */
 export function normalizeState(state: StudyState): StudyState {
-  const todos = { ...state.todos };
-  const dailyLog: Record<string, DailyLogEntry> = { ...state.dailyLog };
+  const todos: Record<string, Todo[]> = {};
+  const dailyLog: Record<string, DailyLogEntry> = {};
 
-  for (const date of Object.keys(todos)) {
-    const items = todos[date] ?? [];
-    if (items.length === 0) {
-      delete todos[date];
-      delete dailyLog[date];
-      continue;
-    }
-    dailyLog[date] = buildDailyLog(items, dailyLog[date]);
+  for (const date of Object.keys(state.todos)) {
+    // Question rows carry partial progress, so keep every item consistent
+    // (completedCount in range, completed derived) before anything reads it.
+    const items = (state.todos[date] ?? [])
+      .map(normalizePyqTodo)
+      .filter((todo) => todo.kind !== "pyq" || todo.amount > 0);
+    if (items.length === 0) continue;
+    todos[date] = items;
+    dailyLog[date] = buildDailyLog(items, state.dailyLog[date]);
   }
 
   const chapters = { ...state.chapters };
@@ -118,6 +122,8 @@ export function normalizeState(state: StudyState): StudyState {
         doneHistory: subjectChapters[chapter.id]?.lectureDoneHistory ?? [],
         sets: (subjectChapters[chapter.id]?.pyqs ?? []).map((pyq) => ({
           id: pyq.id,
+          label: pyq.label,
+          total: pyq.total,
           done: pyq.done,
         })),
       })),
@@ -168,7 +174,7 @@ export function hydrateState(loaded: StudyState | null): StudyState {
         return storedPyq
           ? {
               ...pyq,
-              total: clampCount(storedPyq.total),
+              total: clampQuestions(storedPyq.total),
               done: Boolean(storedPyq.done),
               assignedDate: storedPyq.assignedDate ?? null,
               assignedSource: storedPyq.assignedSource ?? null,

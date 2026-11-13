@@ -140,18 +140,25 @@ export default function LectureChecklist({ subject, chapter }: LectureChecklistP
               return (
                 <div
                   key={index}
-                  className={`flex min-h-[47px] flex-wrap items-center gap-3 rounded-control px-3 py-2 ${rowTone}`}
+                  role="checkbox"
+                  tabIndex={0}
+                  aria-checked={status === "done"}
+                  aria-label={`${status === "done" ? "Unmark" : "Mark"} lecture ${index} — ${note}`}
+                  onClick={() => toggleLecture(chapter.id, index)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      toggleLecture(chapter.id, index);
+                    }
+                  }}
+                  className={`flex min-h-[47px] cursor-pointer flex-wrap items-center gap-3 rounded-control px-3 py-2 transition-colors hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${rowTone}`}
                 >
-                  <button
-                    type="button"
-                    role="checkbox"
-                    aria-checked={status === "done"}
-                    aria-label={`Lecture ${index}`}
-                    onClick={() => toggleLecture(chapter.id, index)}
+                  <span
+                    aria-hidden="true"
                     className={`flex size-[20px] shrink-0 items-center justify-center rounded-checkbox border transition-colors ${boxTone}`}
                   >
                     <span className="text-[13px] font-semibold leading-none">{"\u2713"}</span>
-                  </button>
+                  </span>
                   <span
                     className={`min-w-[140px] flex-1 text-[12px] font-medium ${
                       status === "done" ? "text-muted" : "text-primary"

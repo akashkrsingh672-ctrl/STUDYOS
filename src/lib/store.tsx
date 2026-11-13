@@ -12,20 +12,24 @@ import type { ReactNode } from "react";
 import { SUBJECTS, chaptersOf, findChapter } from "@/lib/curriculum";
 import { addDays, countDaysBetween, todayKey } from "@/lib/date";
 import {
+  addPyqAllocations as planAddPyqAllocations,
   clampCount,
+  clampQuestions,
   createLectureTodo,
-  createPyqTodo,
   dayStats,
   deriveStatus,
   emptyDailyLog,
   flattenTodos,
   isLectureTodoOf,
-  isPyqTodoOf,
   lectureDoneCount,
   lectureRowStatus as planLectureRowStatus,
   makeTodoId,
   movePendingTodos,
-  pyqRowStatus as planPyqRowStatus,
+  normalizePyqTodo,
+  pyqChapterStats,
+  pyqSectionStats,
+  trimPyqAllocation,
+  type PyqAllocation,
 } from "@/lib/planLogic";
 import type { DayStats, RowStatus } from "@/lib/planLogic";
 import { quoteForDate } from "@/lib/quotes";
@@ -37,6 +41,7 @@ import type {
   ChapterState,
   ChapterStatus,
   DailyLogEntry,
+  PyqChapterStats,
   StudyState,
   SubjectName,
   SubjectProgress,
@@ -47,8 +52,13 @@ import type {
 export interface ChapterProgress {
   lectures: number;
   lecturesDone: number;
-  setsDone: number;
-  setsTotal: number;
+  /** Question progress (question-based, replaces the old set counters). */
+  questionsCompleted: number;
+  questionsTotal: number;
+  questionsQueued: number;
+  pyqPct: number;
+  /** Full per-section breakdown for the chapter's question rows. */
+  pyq: PyqChapterStats;
   theoryDone: boolean;
   status: ChapterStatus;
 }
@@ -73,14 +83,21 @@ export interface StudyContextValue {
   toggleLecture: (chapterId: string, lectureIndex: number) => void;
   assignLectures: (chapterId: string, date: string, source: TodoSource) => void;
   setPyqTotal: (chapterId: string, setId: string, value: number) => void;
-  togglePyqDone: (chapterId: string, setId: string) => void;
-  assignPyq: (chapterId: string, setId: string, date: string, source: TodoSource) => void;
+  /** Adds questions from each section to a day (one Todo per section). */
+  addPyqAllocations: (
+    chapterId: string,
+    date: string,
+    source: TodoSource,
+    allocations: PyqAllocation[],
+  ) => void;
+  /** Logs partial progress (0..amount) on one assigned question row. */
+  setPyqProgress: (date: string, todoId: string, completedCount: number) => void;
+  /** Per-section question stats for a chapter (bars + allocation panel). */
+  pyqStats: (chapterId: string) => PyqChapterStats;
   /** Persist the chapter's theory-lecture total ("Add N lectures"). */
   saveChapterLectures: (chapterId: string) => void;
   /** Row state for the chapter's lecture checklist. */
   lectureRowStatus: (chapterId: string, lectureIndex: number) => RowStatus;
-  /** Row state for a PYQ set. */
-  pyqRowStatus: (chapterId: string, setId: string) => RowStatus;
 
   todosFor: (date: string) => Todo[];
   logFor: (date: string) => DailyLogEntry;
@@ -341,109 +358,93 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   const setPyqTotal = useCallback(
     (chapterId: string, setId: string, value: number) => {
-      const next = clampCount(value);
+      const next = clampQuestions(value);
       mutate((current) => {
         const subject = current.activeSubject;
         const updated = withChapter(current, subject, chapterId, (chapter) => ({
           ...chapter,
           pyqs: chapter.pyqs.map((pyq) =>
-            pyq.id === setId ? { ...pyq, total: next } : pyq,
+            pyq.id === setId
+              ? // A zero total means the section no longer exists: drop the
+                // legacy done mark so it cannot claim progress.
+                { ...pyq, total: next, done: next > 0 ? pyq.done : false }
+              : pyq,
           ),
         }));
 
-        return withTodos(updated, (todos) => {
-          const synced: Record<string, Todo[]> = {};
-          for (const date of Object.keys(todos)) {
-            const items = (todos[date] ?? []).map((todo) =>
-              isPyqTodoOf(todo, subject, chapterId, setId)
-                ? { ...todo, amount: next }
-                : todo,
-            );
-            if (items.length > 0) synced[date] = items;
-          }
-          return synced;
-        });
+        // Allocations are real work, so trim them to the new total (oldest days
+        // keep their share) instead of rewriting their amounts.
+        return withTodos(updated, (todos) =>
+          trimPyqAllocation(todos, subject, chapterId, setId, next),
+        );
       });
     },
     [mutate],
   );
 
-  const togglePyqDone = useCallback(
-    (chapterId: string, setId: string) => {
+  /**
+   * Adds questions from each section to a day. Counts are validated against the
+   * section's remaining headroom here as well, so the panel is not the only
+   * guard. Pressing the same day again tops up that day's unfinished row.
+   */
+  const addPyqAllocations = useCallback(
+    (chapterId: string, date: string, source: TodoSource, allocations: PyqAllocation[]) => {
+      if (!date) return;
       mutateWithDate((current, stamp) => {
         const subject = current.activeSubject;
         const seed = findChapter(subject, chapterId);
         const chapter = current.chapters[subject]?.[chapterId];
-        const set = chapter?.pyqs.find((pyq) => pyq.id === setId);
-        if (!seed || !chapter || !set) return current;
+        if (!seed || !chapter) return current;
 
-        // Finished through the Todo -> it is done; undo it there.
-        const alreadyDone = flattenTodos(current.todos).some(
-          (todo) => isPyqTodoOf(todo, subject, chapterId, setId) && todo.completed,
-        );
-        if (alreadyDone) return current;
+        const all = flattenTodos(current.todos);
+        const allowed: PyqAllocation[] = [];
+        for (const allocation of allocations) {
+          const set = chapter.pyqs.find((pyq) => pyq.id === allocation.set.id);
+          if (!set) continue;
+          const stats = pyqSectionStats(all, {
+            subject,
+            chapterId,
+            id: set.id,
+            label: set.label,
+            total: set.total,
+            done: set.done,
+          });
+          const count = Math.min(clampQuestions(allocation.count), stats.remaining);
+          if (count > 0) allowed.push({ set, count });
+        }
+        if (allowed.length === 0) return current;
 
-        const day = set.assignedDate;
-
-        if (day) {
-          // Queue mode: a tick moves the set into the chosen day's Todo.
-          const pending = locateTodo(
-            current.todos,
-            (todo) => isPyqTodoOf(todo, subject, chapterId, setId) && !todo.completed,
-          );
-          if (pending) {
-            return withTodos(current, (todos) =>
-              removeFromDay(todos, pending.date, (todo) => todo.id === pending.todo.id),
-            );
-          }
-          if (set.done) return current;
-
-          const todo = createPyqTodo({
+        return withTodos(current, (todos) =>
+          planAddPyqAllocations(todos, {
             subject,
             chapterId,
             chapterTitle: seed.title,
-            set,
-            date: day,
-            source: set.assignedSource ?? "today",
+            date,
+            source,
+            allocations: allowed,
             createdAt: stamp,
-            completed: false,
-          });
-          return withTodos(current, (todos) => insertTodo(todos, day, todo));
-        }
-
-        // No day selected: a tick records a historical ("already done") mark
-        // that counts toward overall PYQ progress only.
-        return withChapter(current, subject, chapterId, (state) => ({
-          ...state,
-          pyqs: state.pyqs.map((pyq) => (pyq.id === setId ? { ...pyq, done: !pyq.done } : pyq)),
-        }));
+          }),
+        );
       });
     },
     [mutateWithDate],
   );
 
-  const assignPyq = useCallback(
-    (chapterId: string, setId: string, date: string, source: TodoSource) => {
+  /** Logs partial progress (0..amount) on one assigned question row. */
+  const setPyqProgress = useCallback(
+    (date: string, todoId: string, completedCount: number) => {
       mutate((current) => {
-        const subject = current.activeSubject;
-        const chapter = current.chapters[subject]?.[chapterId];
-        const set = chapter?.pyqs.find((pyq) => pyq.id === setId);
-        if (!chapter || !set || !date) return current;
+        const item = (current.todos[date] ?? []).find((todo) => todo.id === todoId);
+        if (!item || item.kind !== "pyq") return current;
+        const next = Math.max(0, Math.min(item.amount, Math.round(completedCount)));
 
-        const updated = withChapter(current, subject, chapterId, (state) => ({
-          ...state,
-          pyqs: state.pyqs.map((pyq) =>
-            pyq.id === setId ? { ...pyq, assignedDate: date, assignedSource: source } : pyq,
-          ),
-        }));
-
-        // Move any outstanding item for the set to the chosen day so the daily
-        // target never double-counts.
-        return withTodos(updated, (todos) =>
-          movePendingTodos(
-            todos,
-            (todo) => isPyqTodoOf(todo, subject, chapterId, setId) && !todo.completed,
-            date,
+        return withTodos(current, (todos) =>
+          mapDate(todos, date, (items) =>
+            items.map((todo) =>
+              todo.id === todoId
+                ? normalizePyqTodo({ ...todo, completedCount: next })
+                : todo,
+            ),
           ),
         );
       });
@@ -460,23 +461,22 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         if (!item) return current;
         const nextCompleted = !item.completed;
 
-        const updated = withTodos(current, (todos) =>
+        return withTodos(current, (todos) =>
           mapDate(todos, date, (items) =>
-            items.map((todo) =>
-              todo.id === todoId ? { ...todo, completed: nextCompleted } : todo,
-            ),
+            items.map((todo) => {
+              if (todo.id !== todoId) return todo;
+              // Question rows carry partial progress; the checkbox is the
+              // all-or-nothing shortcut (tick = every allocated question).
+              if (todo.kind === "pyq") {
+                return normalizePyqTodo({
+                  ...todo,
+                  completedCount: nextCompleted ? todo.amount : 0,
+                });
+              }
+              return { ...todo, completed: nextCompleted };
+            }),
           ),
         );
-
-        if (item.kind === "pyq" && item.setId) {
-          return withChapter(updated, item.subject, item.chapterId, (chapter) => ({
-            ...chapter,
-            pyqs: chapter.pyqs.map((pyq) =>
-              pyq.id === item.setId ? { ...pyq, done: nextCompleted } : pyq,
-            ),
-          }));
-        }
-        return updated;
       });
     },
     [mutate],
@@ -559,20 +559,52 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         lectureDoneCount(allTodos, chapter.lectureDoneHistory, subject, chapterId, lectures),
         lectures,
       );
-      const setsTotal = chapter.pyqs.length;
-      const setsDone = chapter.pyqs.filter((pyq) => pyq.done).length;
+      const pyq = pyqChapterStats(
+        allTodos,
+        subject,
+        chapterId,
+        chapter.pyqs.map((item) => ({
+          id: item.id,
+          label: item.label,
+          total: item.total,
+          done: item.done,
+        })),
+      );
       const theoryDone = lectures > 0 && lecturesDone >= lectures;
 
       return {
         lectures,
         lecturesDone,
-        setsDone,
-        setsTotal,
+        questionsCompleted: pyq.completed,
+        questionsTotal: pyq.total,
+        questionsQueued: pyq.queued,
+        pyqPct: pyq.pct,
+        pyq,
         theoryDone,
-        status: deriveStatus(theoryDone, setsTotal > 0 && setsDone >= setsTotal),
+        status: deriveStatus(theoryDone, pyq.allDone),
       };
     },
     [allTodos, chapterState],
+  );
+
+  /** Per-section question stats for a chapter (bars + allocation panel). */
+  const pyqStats = useCallback(
+    (chapterId: string): PyqChapterStats => {
+      const subject = state.activeSubject;
+      const chapter = chapterState(subject, chapterId);
+      return pyqChapterStats(
+        allTodos,
+        subject,
+        chapterId,
+        chapter.pyqs.map((item) => ({
+          id: item.id,
+          label: item.label,
+          total: item.total,
+          done: item.done,
+        })),
+      );
+    },
+    [allTodos, chapterState, state.activeSubject],
   );
 
   const lectureRowStatus = useCallback(
@@ -580,17 +612,6 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       const subject = state.activeSubject;
       const history = state.chapters[subject]?.[chapterId]?.lectureDoneHistory ?? [];
       return planLectureRowStatus(state.todos, history, subject, chapterId, lectureIndex);
-    },
-    [state.activeSubject, state.chapters, state.todos],
-  );
-
-  const pyqRowStatus = useCallback(
-    (chapterId: string, setId: string): RowStatus => {
-      const subject = state.activeSubject;
-      const done = Boolean(
-        state.chapters[subject]?.[chapterId]?.pyqs.find((pyq) => pyq.id === setId)?.done,
-      );
-      return planPyqRowStatus(state.todos, done, subject, chapterId, setId);
     },
     [state.activeSubject, state.chapters, state.todos],
   );
@@ -627,10 +648,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     toggleLecture,
     assignLectures,
     lectureRowStatus,
-    pyqRowStatus,
     setPyqTotal,
-    togglePyqDone,
-    assignPyq,
+    addPyqAllocations,
+    setPyqProgress,
+    pyqStats,
 
     todosFor,
     logFor,

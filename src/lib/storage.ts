@@ -7,7 +7,7 @@ import type { StudyState } from "./types";
  * private-browsing modes where `localStorage` can throw.
  */
 export const STORAGE_KEY = "studyos:log";
-export const STORAGE_VERSION = 2;
+export const STORAGE_VERSION = 3;
 /** Oldest persisted shape we can still read and migrate in place. */
 export const MIN_SUPPORTED_VERSION = 1;
 

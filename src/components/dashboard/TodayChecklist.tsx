@@ -17,6 +17,7 @@ export default function TodayChecklist() {
     statsFor,
     todosFor,
     toggleTodo,
+    setPyqProgress,
     jumpToToday,
     quote,
     moraleShownFor,
@@ -96,7 +97,11 @@ export default function TodayChecklist() {
         </p>
       ) : (
         <>
-          <TodoList todos={todos} onToggle={(todoId) => toggleTodo(date, todoId)} />
+          <TodoList
+            todos={todos}
+            onToggle={(todoId) => toggleTodo(date, todoId)}
+            onProgress={(todoId, count) => setPyqProgress(date, todoId, count)}
+          />
           <p className="text-[10px] text-muted">
             Tick an item here to complete it — the daily goal and syllabus update together.
           </p>
