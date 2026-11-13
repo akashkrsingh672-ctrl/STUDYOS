@@ -271,4 +271,23 @@ a shorter lecture total trims only vanished rows, and a v1 log migrates to v2 wi
 - Optional plan §8 "Clear day" affordance — not implemented (out of scope).
 - No backend: persistence remains `localStorage` only.
 
+---
+
+## Session 3 — 2026-11-13 · Exam countdown date
+
+Request: change the board-exam data behind the sidebar countdown to **16 February**.
+
+- **New `src/lib/exam.ts`** — `EXAM_DATE = "2027-02-16"` (the next 16 Feb from the app's 13 Nov 2026
+  working date) and `daysUntilExam(today)`: whole days remaining, clamped at 0, `null` before the app
+  has hydrated a "today" key.
+- **`components/layout/Sidebar.tsx`** — the hard-coded `42` / "Example exam date · 13 Mar 2026" is
+  replaced by the computed count and `Exam date · 16 Feb 2027`. The card, 48px type scale, copy
+  structure, tokens and layout are unchanged (no design change). Pre-hydration shows an em dash so the
+  server and first client paint agree, then the live number appears.
+- **`scripts/logic-tests.mts`** — one new test: the constant, 13 Nov 2026 → **95** days, the 1-day
+  boundary, exam day = 0, past dates clamp to 0, and an empty "today" returns `null`.
+- No new dependency; no change to the Figma-derived design language.
+
+Verification: `npm test` **28/28**, `npm run lint` clean, `npm run build` exit 0 (4/4 static pages).
+
 

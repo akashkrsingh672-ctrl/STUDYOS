@@ -22,7 +22,7 @@ required; no git repo existed → `git init`.
 
 Both build blockers were fixed during the realignment and are covered by T4.
 
-## T2 · Logic + persistence tests — ✅ PASSED (27/27)
+## T2 · Logic + persistence tests — ✅ PASSED (28/28)
 
 ```bash
 npm test
@@ -35,6 +35,7 @@ StudyOS logic tests
   PASS  date keys round-trip in local time and step across boundaries
   PASS  relative labels match the working-log wording
   PASS  month grid is Monday-first and complete
+  PASS  the exam countdown targets 16 Feb 2027
   PASS  curriculum mirrors the Figma chapter lists        (3 × 4 chapters, 4 PYQ sets each)
   PASS  lecture items are built as 1-unit checklist rows
   PASS  PYQ items carry the set size as their question count
@@ -59,7 +60,7 @@ StudyOS logic tests
   PASS  a shorter lecture total trims only the vanished rows (Plan 2)
   PASS  a v1 log migrates to v2 without losing data (Plan 2)
 
-27 passed, 0 failed
+28 passed, 0 failed
 ```
 
 Key assertions worth calling out:
@@ -73,6 +74,8 @@ Key assertions worth calling out:
 - Change Plan 2 (details in T7): historical marks merge with completed todos and dedupe/cap; row status
   walks idle → queued → done; moving a pending item keeps its id on one day; un-completing reverses
   daily **and** syllabus progress; a v1 saved log upgrades to v2 with no data loss.
+- Exam countdown: `EXAM_DATE = "2027-02-16"`; 13 Nov 2026 → **95** days, 15 Feb 2027 → 1, exam day → 0,
+  a past date clamps to 0, and an un-hydrated (empty) day returns `null`.
 
 ## T3 · Lint — ✅ PASSED (clean)
 
@@ -141,7 +144,7 @@ The server was stopped after the check.
 | Original element | Status after changes |
 |---|---|
 | Top navigation (monogram, brand, descriptor, session pill, preview date) | ✅ present (T5), visually unchanged; hamburger now functional |
-| Boards countdown card (42 / exam-date copy) | ✅ present, copy preserved |
+| Boards countdown card | ✅ present with the same card/tokens; now live — 16 Feb 2027 exam date, days computed from the hydrated "today" (42 / "13 Mar 2026" placeholder replaced) |
 | Subject picker cards | ✅ present, now switching subjects for real |
 | Chapter library + accordions | ✅ present, expanded into the design's study flow |
 | Workspace footer ("The Study Loop" path) | ✅ `components/layout/Footer.tsx` untouched |

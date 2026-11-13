@@ -10,7 +10,7 @@ Figma (visual authority): `https://www.figma.com/design/CebX98K0BKepBsWee0uE17/U
 | Gate | Command | Result |
 |---|---|---|
 | Type check | `npx tsc --noEmit` | ✅ 0 errors |
-| Logic/unit tests | `npm test` | ✅ **27 passed, 0 failed** |
+| Logic/unit tests | `npm test` | ✅ **28 passed, 0 failed** |
 | Lint | `npm run lint` | ✅ clean (0 errors, 0 warnings) |
 | Production build | `npm run build` | ✅ compiles + typechecks + prerenders `/` |
 | SSR smoke test | `next start -p 3100` + HTTP fetch | ✅ 200, 24,412 bytes, all sections present, correct negatives |
@@ -43,7 +43,7 @@ Figma (visual authority): `https://www.figma.com/design/CebX98K0BKepBsWee0uE17/U
 | 4.6 | Todo surfaces: completion copy hint (drawer + dashboard) | ✅ done |
 | 5 | `STORAGE_VERSION` 1 → 2 with a v1 → v2 migration (no data loss) | ✅ done (tested) |
 | 6 | Edge cases: single-day queue, union cap, un-complete reversal, trim, idempotence | ✅ done (tested) |
-| 7 | Tests, lint, build, SSR smoke, tracking docs, commit | ✅ done — 27/27 tests |
+| 7 | Tests, lint, build, SSR smoke, tracking docs, commit | ✅ done — suite 28/28 |
 | 8 | Optional "Clear day" control | ⛔ not in scope (not requested) |
 
 ## Requirements traceability
@@ -74,6 +74,7 @@ src/
     state.ts           initial state, normalize (derived rebuild), hydrate (merge/migrate)
     store.tsx          StudyProvider + useStudy() (state, mutations, UI state)
     quotes.ts          morale quotes + deterministic daily rotation
+    exam.ts            board-exam date (16 Feb 2027) + countdown helper
   components/
     common/            Stepper · AssignToDateControl · CalendarPopover
     dashboard/         ArcGauge · DailyGoalGauge · TodayChecklist · MobileGoalBar
