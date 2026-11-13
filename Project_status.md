@@ -1,6 +1,6 @@
 # Project Status — StudyOS
 
-Last updated: 2026-11-13 (Session 1)
+Last updated: 2026-11-13 (Session 2 — Change Plan 2 complete)
 Stack: Next.js 16.4.6 (App Router, Turbopack, React 19.3) · TypeScript 5 (strict) · Tailwind CSS 4.3
 Persistence: browser `localStorage` (key `studyos:log`, version-guarded) — no backend yet.
 Figma (visual authority): `https://www.figma.com/design/CebX98K0BKepBsWee0uE17/Untitled?node-id=0-1&m=dev`
@@ -9,10 +9,11 @@ Figma (visual authority): `https://www.figma.com/design/CebX98K0BKepBsWee0uE17/U
 
 | Gate | Command | Result |
 |---|---|---|
-| Logic/unit tests | `npm test` | ✅ **19 passed, 0 failed** |
+| Type check | `npx tsc --noEmit` | ✅ 0 errors |
+| Logic/unit tests | `npm test` | ✅ **27 passed, 0 failed** |
 | Lint | `npm run lint` | ✅ clean (0 errors, 0 warnings) |
 | Production build | `npm run build` | ✅ compiles + typechecks + prerenders `/` |
-| SSR smoke test | `next start -p 3100` + HTTP fetch | ✅ 200, all sections present, correct negatives |
+| SSR smoke test | `next start -p 3100` + HTTP fetch | ✅ 200, 24,412 bytes, all sections present, correct negatives |
 | Manual browser pass | — | ⏳ pending (see `Tests_performed.md`) |
 
 > Baseline note: before this session the shell **did not build at all** (font `@import` order +
@@ -29,6 +30,21 @@ Figma (visual authority): `https://www.figma.com/design/CebX98K0BKepBsWee0uE17/U
 | 4 — hamburger todo drawer + morale | ✅ done | `components/todo/TodoDrawer.tsx`, `TodoList.tsx`, `MoraleCard.tsx`, `components/layout/TopNavigation.tsx` |
 | 5 — daywise calendar log (survives refresh) | ✅ done | `lib/store.tsx`, `lib/storage.ts`, `lib/state.ts`, `components/dashboard/TodayChecklist.tsx` |
 | 6 — polish, responsiveness, regression | ✅ done (browser re-check pending) | `app/globals.css` utilities, `components/dashboard/MobileGoalBar.tsx`, responsive classes throughout |
+
+## Change Plan 2 coverage (`2ndchangesplan.md`)
+
+| Plan § | Item | Status |
+|---|---|---|
+| 4.1 | `ChapterState`: conserved `lectures`, `lecturesSaved`, `lectureDoneHistory` | ✅ done |
+| 4.2 | `planLogic`: `lectureDoneIndices`, row status, finders, `subjectRollup(doneHistory)` | ✅ done |
+| 4.3 | `state.ts`: factories, hydrate sanitise + `lecturesPlanned` fallback, roll-up wiring | ✅ done |
+| 4.4 | `store.tsx`: queue/history rules, move-not-duplicate, union progress, trimming | ✅ done |
+| 4.5 | Chapter rows: three states driven by `lecturesSaved` and overall progress | ✅ done |
+| 4.6 | Todo surfaces: completion copy hint (drawer + dashboard) | ✅ done |
+| 5 | `STORAGE_VERSION` 1 → 2 with a v1 → v2 migration (no data loss) | ✅ done (tested) |
+| 6 | Edge cases: single-day queue, union cap, un-complete reversal, trim, idempotence | ✅ done (tested) |
+| 7 | Tests, lint, build, SSR smoke, tracking docs, commit | ✅ done — 27/27 tests |
+| 8 | Optional "Clear day" control | ⛔ not in scope (not requested) |
 
 ## Requirements traceability
 
@@ -53,7 +69,7 @@ src/
     types.ts           domain model
     date.ts            local-time ISO date helpers + calendar grid
     curriculum.ts      Figma curriculum (3 subjects × 4 chapters, 4 PYQ sets each)
-    planLogic.ts       pure logic (counts, day stats, roll-ups, factories, status)
+    planLogic.ts       pure logic (counts, day stats, roll-ups, row status, queue moves, factories)
     storage.ts         localStorage get/set/clear + version guard
     state.ts           initial state, normalize (derived rebuild), hydrate (merge/migrate)
     store.tsx          StudyProvider + useStudy() (state, mutations, UI state)
@@ -68,9 +84,18 @@ src/
 scripts/logic-tests.mts   Node-based logic + persistence tests (`npm test`)
 ```
 
-Single source of truth: the **checklist** (`todos[date]`). `normalizeState()` recomputes every
+Single source of truth: the **checklist** (`todos[date]`) for daily completion, plus the chapter's
+`lectureDoneHistory` / `pyq.done` for historical marks. `normalizeState()` recomputes every
 `dailyLog` entry and every subject roll-up after each mutation, so gauges, chips, status pills and the
-tooltip can never drift out of sync with the log.
+tooltip can never drift out of sync.
+
+**Two progress tracks (Change Plan 2):**
+
+- **Overall (dashboard):** `subjectRollup` counts `union(lectureDoneHistory, completed lecture todos)`
+  capped at the chapter total, plus `pyq.done` sets. Independent of any date.
+- **Daily (todo):** `dailyLog[date]` / `dayStats(date)` count only that date's todos. A chapter tick
+  with a day selected queues a pending todo; the Todo checkbox is the only action that completes it
+  and moves both tracks. Unticking reverses both.
 
 ## Design tokens (extended this session)
 
@@ -97,9 +122,10 @@ npm test         # logic + persistence tests (node)
 
 ## Next steps / known gaps
 
-1. Manual browser pass of the interactive flows (checklist in `Tests_performed.md`).
+1. Manual browser pass of the interactive flows, including the Change Plan 2 queue/history flows
+   (checklist in `Tests_performed.md`).
 2. Re-check pixel spacing against Figma screenshots once the MCP quota resets; the "Prototype hint"
    and "Study greeting" copy still need capturing from the file.
-3. Optional future work (not requested yet): backend sync, per-subject daily goals, log export,
-   drawer keyboard shortcuts.
+3. Optional future work (not requested yet): the plan §8 "Clear day" control, backend sync,
+   per-subject daily goals, log export, drawer keyboard shortcuts.
 

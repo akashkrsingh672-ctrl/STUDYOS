@@ -195,4 +195,80 @@ survive narrow viewports, sidebar hidden below `lg` with `MobileGoalBar` replaci
 - Figma "Prototype hint" + "Study greeting" copy (see deviation 6).
 - No backend: persistence is localStorage only, as agreed in the plan.
 
+---
+
+## Session 2 — 2026-11-13 · Change Plan 2 (chapter progress vs. daily tasks)
+
+Approved plan: `2ndchangesplan.md`. The change separates **overall progress** (dashboard, date-independent)
+from **daily completion** (the Todo for a chosen date).
+
+### 1. Behaviour model implemented
+
+| Rule (plan §2) | Implementation |
+|---|---|
+| `lectures` is the chapter's conserved theory-lecture total, not a plan | `ChapterState.lectures` clamped 0–15; `setChapterLectures` never consumes it; `saveChapterLectures` only flips `lecturesSaved` |
+| Chapter tick, **no day selected** → historical "already done", overall only | `toggleLecture`/`togglePyqDone` write `lectureDoneHistory` / `pyq.done`; no todo is created |
+| Chapter tick, **day selected** → queues a PENDING todo, does not complete | `assignLectures`/`assignPyq` store the day; the tick inserts a `completed:false` todo on that day (or removes the pending one) |
+| Todo tick → the only completion, daily **and** overall | `toggleTodo` unchanged; `normalizeState` rebuilds `dailyLog` and `subjectRollup` after every mutation |
+| Moving a queued item never duplicates it | `movePendingTodos` keeps the todo id and moves it to the new date; completed/historical rows stay put |
+
+`lectureRowStatus` / `pyqRowStatus` return `idle → queued → done`; `chapterProgress.lecturesDone` is
+`union(lectureDoneHistory, completed lecture todos)` capped at the total, and `setsDone` stays `pyq.done`.
+
+### 2. Files changed
+
+| File | Change |
+|---|---|
+| `src/lib/types.ts` | `lectures` documented as the conserved total; `lecturesPlanned` → `lecturesSaved`; new `lectureDoneHistory: number[]` |
+| `src/lib/planLogic.ts` | New `lectureDoneIndices`, `lectureDoneCount`, `lectureRowStatus`, `pyqRowStatus`, `findLectureTodo`, `findPyqTodo`, `movePendingTodos`; `subjectRollup` takes `doneHistory` |
+| `src/lib/state.ts` | `createChapterState` seeds the new fields; `hydrateState` sanitises history (1..lectures) and falls back `lecturesPlanned` → `lecturesSaved`; `normalizeState` passes history into the roll-up. Runtime imports use explicit `.ts` specifiers (see deviation 1) |
+| `src/lib/storage.ts` | `STORAGE_VERSION` 1 → 2, `MIN_SUPPORTED_VERSION = 1` so v1 logs still load and migrate |
+| `src/lib/store.tsx` | Queue/history rules for `toggleLecture`, `togglePyqDone`; move-not-duplicate in `assignLectures`/`assignPyq`; `chapterProgress` uses the union; exposes `lectureRowStatus`/`pyqRowStatus`; `setChapterLectures` trims history + pending rows above the new total and clears `lecturesSaved` at 0 |
+| `src/components/chapter/LectureChecklist.tsx` | Setup panel driven by `lecturesSaved`; "Save N lectures" copy; three row states (idle / queued / done) with existing tokens |
+| `src/components/chapter/PyqChecklist.tsx` | Three row states; "Practice complete" only when done; day hint copy |
+| `src/components/todo/TodoDrawer.tsx` | Footer hint: "Tick to complete - saved in your browser" |
+| `src/components/dashboard/TodayChecklist.tsx` | One-line hint under the list: ticking completes the item for both progress tracks |
+| `scripts/logic-tests.mts` | Repaired the corrupted block (see §4) and added 8 Plan 2 tests |
+
+### 3. Deliberate deviations / interpretation calls
+
+1. **`.ts` specifiers in `state.ts`.** The test script now imports `hydrateState` directly, and Node's
+   ESM resolver needs explicit extensions. `allowImportingTsExtensions` was already enabled in
+   Session 1 for the same reason; Turbopack and `tsc --noEmit` both accept the `.ts` specifiers.
+2. **Button copy "Save N lectures"** instead of the design's "Add N lectures" — the plan requires the
+   action to clarify that it stores the chapter total (plan §4.5).
+3. **Row tints.** The three states use the plan's named tokens (`bg-success-soft`,
+   `border-success-border`, `bg-accent-soft`, `rounded-checkbox`) plus the already-defined
+   `bg-accent-softer` / `bg-surface-subtle` for the queued/idle fills.
+4. **"Add N lectures" no longer creates todos.** Only an explicit day assignment plus a row tick
+   queues work, so a saved total can never silently complete anything.
+5. **No "Clear day" control.** Plan §8 is explicitly out of scope until requested; `AssignToDateControl`
+   is unchanged.
+
+### 4. Test-script repair (found during this session)
+
+The first pass left the Plan 2 test block spliced into two existing tests, which produced
+`ERR_INVALID_TYPESCRIPT_SYNTAX` / `Parsing error: ';' expected` and broke `npm test`, `npm run lint`
+and the build's typecheck. Repaired by restoring the four damaged tests (including the new required
+`doneHistory` field in `subjectRollup` fixtures) and moving the Plan 2 block after the
+practised-questions test. Three extra tests were added: un-complete reverses both progress tracks,
+a shorter lecture total trims only vanished rows, and a v1 log migrates to v2 without data loss.
+
+### 5. Verification (2026-11-13)
+
+| Gate | Result |
+|---|---|
+| `npx tsc --noEmit` | ✅ 0 errors |
+| `npm test` | ✅ **27 passed, 0 failed** |
+| `npm run lint` | ✅ clean (exit 0) |
+| `npm run build` | ✅ compiled + typechecked (4.9 s) + 4/4 static pages |
+| SSR smoke (`next start -p 3100`) | ✅ 200, 24,412 bytes, expected markers present, correct negatives |
+
+### 6. Outstanding after Session 2
+
+- Manual browser pass, including the Plan 2 flows listed in `Tests_performed.md`.
+- Figma "Prototype hint" + "Study greeting" copy (Session 1 deviation 6) still not captured.
+- Optional plan §8 "Clear day" affordance — not implemented (out of scope).
+- No backend: persistence remains `localStorage` only.
+
 
