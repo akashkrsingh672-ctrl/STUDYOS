@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@700&display=swap");
+
+:root {
+  /* Backgrounds */
+  --background: #0b1220;
+  --foreground: #eaf4f4;
+  --surface: rgba(234, 244, 244, 0.04);
+  --surface-hover: rgba(234, 244, 244, 0.08);
+  --monogram-bg: #1f3a5f;
+
+  /* Borders */
+  --border-light: rgba(234, 244, 244, 0.1);
+  --border-medium: rgba(234, 244, 244, 0.12);
+  --border-strong: rgba(234, 244, 244, 0.2);
+  --border-success: rgba(120, 219, 178, 0.28);
+  --hairline: rgba(234, 244, 244, 0.1);
+
+  /* Text */
+  --text-primary: #eaf4f4;
+  --text-muted: #a5bacb;
+  --accent: #5aa9e6;
+  --accent-text: #5aa9e6;
+  --success: #78db78;
+
+  /* Fonts */
+  --font-sans: "Inter", sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+
+  /* Radii */
+  --radius-card: 16px;
+  --radius-stepper: 8px;
+  --radius-button: 7px;
+  --radius-monogram: 13px;
+  --radius-session: 14px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-monogram-bg: var(--monogram-bg);
+  --color-border-light: var(--border-light);
+  --color-border-medium: var(--border-medium);
+  --color-border-strong: var(--border-strong);
+  --color-border-success: var(--border-success);
+  --color-hairline: var(--hairline);
+  --color-text-primary: var(--text-primary);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-success: var(--success);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --radius-card: var(--radius-card);
+  --radius-stepper: var(--radius-stepper);
+  --radius-button: var(--radius-button);
+  --radius-monogram: var(--radius-monogram);
+  --radius-session: var(--radius-session);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv01", "cv02", "cv03", "cv04", "cv11";
+}
