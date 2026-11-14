@@ -1,3 +1,5 @@
+"use client";
+
 import ChapterLibrary from "@/components/chapter/ChapterLibrary";
 import MobileGoalBar from "@/components/dashboard/MobileGoalBar";
 import TodayChecklist from "@/components/dashboard/TodayChecklist";
