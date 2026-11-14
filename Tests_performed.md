@@ -269,5 +269,23 @@ Run `npm run dev` and confirm:
     â†’ a separate row appears for tomorrow.
 21. In the Todo: click the counter `+`/`âˆ’` to log partial progress (the checkbox still ticks all / unticks all); lowering a section total shrinks the newest day's row first.
 
+---
 
+## T3 · Supabase Auth + Cloud Sync (Session 7)
+
+### Performed (code-level, no browser driver available)
+
+22. **Type check** — `npx tsc --noEmit --skipLibCheck` → 0 errors
+23. **ESLint** — changed files (`store.tsx`, `page.tsx`, `supabase.ts`, `sync.ts`, `LoginForm.tsx`, `AuthPrompt.tsx`) → 0 errors
+24. **Existing unit tests** — `npm test` → 37 passed, 0 failed (no regressions)
+25. **Supabase migration** — `create_user_study_logs` applied → `user_study_logs` table + RLS policies + `updated_at` trigger created successfully
+26. **Session persistence** — `@supabase/ssr` `createBrowserClient` persists session in browser localStorage; app restores session on mount without requiring re-login
+27. **Data safety** — `backupLocalLog()` creates timestamped backup before any cloud write; `listLocalBackups()` / `restoreLocalBackup()` available for recovery
+28. **RLS security** — Policies restrict `user_study_logs` rows to `auth.uid() = user_id`; only anon key used in browser code; no service-role key exposed
+
+### Pending (requires browser driver)
+
+29. Manual end-to-end: sign up → local data uploads to cloud → open on second device → sign in → cloud data downloads → same data on both devices
+30. Manual: local + cloud both exist → AuthPrompt appears → user chooses version → data preserved
+31. Manual: logout → clears local state → login restores from cloud
 

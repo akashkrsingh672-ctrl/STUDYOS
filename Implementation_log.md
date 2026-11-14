@@ -383,6 +383,59 @@ Request: expose the PYQ section before lectures finish (collapsed until clicked 
 
 ---
 
+## Session 7 — 2026-11-14 (Supabase cloud sync + Auth)
+
+### Changes
+
+1. **Supabase project & database** — Connected to existing Supabase project `huxsujlkftinzcuujyoz` (ap-northeast-1). Applied migration `create_user_study_logs`: new table `user_study_logs` with `user_id` (FK to `auth.users`), `payload` JSONB column, `updated_at` timestamp, RLS enabled, and per-user row-level policies (`auth.uid() = user_id`). Plus `update_updated_at_column()` trigger. No existing data touched.
+
+2. **`src/lib/supabase.ts`** — New: browser-only Supabase client via `@supabase/ssr` `createBrowserClient`, lazy-initialized, null-safe during SSR/missing env.
+
+3. **`src/lib/sync.ts`** — New: `uploadStudyLog()`, `downloadStudyLog()`, `cloudLogExists()` for cloud CRUD; `backupLocalLog()`, `listLocalBackups()`, `restoreLocalBackup()` for data safety before any cloud operation.
+
+4. **`src/lib/store.tsx`** — Modified: added Supabase auth state (`user`, `authLoading`, `syncEnabled`, `authError`, `remoteState`), `login`/`signup`/`logout`/`resolveSync` actions, session restore on mount via `onAuthStateChange`, cloud upload on state mutation when `syncEnabled`, `handleAuthenticated()` for local-vs-cloud merge logic.
+
+5. **`src/components/auth/LoginForm.tsx`** — New: minimal email/password sign-in & sign-up form matching existing Figma design tokens.
+
+6. **`src/components/auth/AuthPrompt.tsx`** — New: conflict-resolution dialog when both local and cloud data exist — user chooses "Use cloud", "Keep local", or "Merge". Local data is always backed up first.
+
+7. **`src/app/page.tsx`** — Modified: auth gate — shows login form when unauthenticated, shows AuthPrompt when local+cloud both exist, shows the full StudyOS app when synced. Existing UI preserved unchanged.
+
+8. **`.env.local`** — New: `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (browser-safe anon key only).
+
+### Data safety guarantees
+- Local `studyos:log` backed up to timestamped key before any cloud write.
+- Never overwrites local data with an empty cloud record.
+- If both local and cloud exist, user is prompted to choose — never silent discard.
+- LocalStorage remains the local cache; cloud is the sync pipe.
+
+### Session persistence
+- Supabase session persisted in browser localStorage via `@supabase/ssr`.
+- Restored automatically on app open — no login required on subsequent visits.
+- Login only required on first use, after manual logout, or when session invalid.
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `.env.local` | New: Supabase URL + anon key |
+| `src/lib/supabase.ts` | New: browser-only Supabase client |
+| `src/lib/sync.ts` | New: cloud upload/download/backup helpers |
+| `src/lib/store.tsx` | Modified: auth state, session restore, cloud sync on mutation |
+| `src/components/auth/LoginForm.tsx` | New: email/password sign-in & sign-up |
+| `src/components/auth/AuthPrompt.tsx` | New: local-vs-cloud conflict resolution dialog |
+| `src/app/page.tsx` | Modified: auth gate wrapping existing app |
+| `src/lib/storage.ts` | No change (already exports `clearState`) |
+
+### Verification (2026-11-14)
+
+| Gate | Command | Result |
+|------|---------|--------|
+| Type check | `npx tsc --noEmit` | ✅ 0 errors |
+| Logic/unit tests | `npm test` | ✅ **37 passed, 0 failed** |
+| Lint | `eslint` on changed files | ✅ 0 errors |
+| Supabase migration | `apply_migration create_user_study_logs` | ✅ table + RLS created |
+
 ## Session 6 — 2026-11-14 (Lecture count preload from preloadlect.json)
 
 ### Changes

@@ -35,7 +35,14 @@ import type { DayStats, RowStatus } from "@/lib/planLogic";
 import { quoteForDate } from "@/lib/quotes";
 import type { Quote } from "@/lib/quotes";
 import { createChapterState, createInitialState, hydrateState, normalizeState } from "@/lib/state";
-import { loadState, saveState } from "@/lib/storage";
+import { loadState, saveState, clearState } from "@/lib/storage";
+import { createSupabaseClient } from "@/lib/supabase";
+import {
+  uploadStudyLog,
+  downloadStudyLog,
+  cloudLogExists,
+  backupLocalLog,
+} from "@/lib/sync";
 import type {
   ChapterSeed,
   ChapterState,
@@ -117,6 +124,26 @@ export interface StudyContextValue {
   drawerOpen: boolean;
   setDrawerOpen: (open: boolean) => void;
   toggleDrawer: () => void;
+
+  /** Authenticated Supabase user (null when not signed in). */
+  user: { id: string; email: string | null } | null;
+  /** True while the initial session restore / sign-in is in flight. */
+  authLoading: boolean;
+  /** Whether cloud sync is active for this session. */
+  syncEnabled: boolean;
+  /** Sign in with email + password. */
+  login: (email: string, password: string) => Promise<void>;
+  /** Sign up with email + password. */
+  signup: (email: string, password: string) => Promise<void>;
+  /** Sign out and clear local + cloud session. */
+  logout: () => Promise<void>;
+  /** Last auth error, if any. */
+  authError: string | null;
+
+  /** Cloud state fetched after login (null if none or not yet fetched). */
+  remoteState: StudyState | null;
+  /** Resolve the local-vs-cloud conflict after login. */
+  resolveSync: (choice: "useCloud" | "useLocal" | "merge") => Promise<void>;
 }
 
 const StudyContext = createContext<StudyContextValue | null>(null);
@@ -184,6 +211,17 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   const [selectedDate, setSelectedDate] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // --- Supabase auth + cloud sync ---
+  const [user, setUser] = useState<{ id: string; email: string | null } | null>(
+    null,
+  );
+  const [authLoading, setAuthLoading] = useState(true);
+  const [syncEnabled, setSyncEnabled] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [remoteState, setRemoteState] = useState<StudyState | null>(null);
+
+  const supabase = createSupabaseClient();
+
   // Load the daywise log once, on the client only.
   useEffect(() => {
     const key = todayKey();
@@ -205,8 +243,193 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (hydrated) saveState(state);
-  }, [state, hydrated]);
+    if (hydrated) {
+      saveState(state);
+      // Upload to cloud when sync is active, debounced via state change.
+      if (syncEnabled && user) {
+        uploadStudyLog(user.id, state).catch(() => {
+          // Silent: localStorage keeps working even if cloud upload fails.
+        });
+      }
+    }
+  }, [state, hydrated, syncEnabled, user]);
+
+  // Restore an existing Supabase session on mount (persists across browser
+  // restarts via @supabase/ssr localStorage-backed session).
+
+  const handleAuthenticated = useCallback(
+    async (userId: string): Promise<void> => {
+      const localState = loadState();
+      const exists = await cloudLogExists(userId);
+
+      if (exists) {
+        const remote = await downloadStudyLog(userId);
+        setRemoteState(remote ?? null);
+        // If both local and cloud exist, wait for user to resolve (AuthPrompt).
+        // syncEnabled stays false until resolveSync is called.
+        if (localState) return;
+        // No local data: adopt cloud.
+        if (remote) {
+          saveState(remote);
+          setSyncEnabled(true);
+        }
+      } else {
+        // No cloud record: seed it with local data (backed up first).
+        if (localState) {
+          backupLocalLog();
+          await uploadStudyLog(userId, localState);
+        }
+        setSyncEnabled(true);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!supabase) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAuthLoading(false);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAuthError("Supabase is not configured.");
+      return;
+    }
+
+    const client = supabase;
+
+    let mounted = true;
+
+    async function initAuth() {
+      try {
+        const { data } = await client.auth.getSession();
+        if (data.session?.user) {
+          const u = data.session.user;
+          setUser({ id: u.id, email: u.email ?? null });
+          await handleAuthenticated(u.id);
+        }
+      } catch (err) {
+        setAuthError(err instanceof Error ? err.message : "Session restore failed.");
+      } finally {
+        if (mounted) setAuthLoading(false);
+      }
+
+      // Listen for auth changes (login/logout in other tabs, etc.).
+      const { data: sub } = client.auth.onAuthStateChange(async (event, session) => {
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          if (session?.user) {
+            const u = session.user;
+            setUser({ id: u.id, email: u.email ?? null });
+            await handleAuthenticated(u.id);
+          }
+        } else if (event === "SIGNED_OUT") {
+          setUser(null);
+          setSyncEnabled(false);
+          setRemoteState(null);
+          setAuthError(null);
+        }
+      });
+
+      return () => {
+        mounted = false;
+        sub.subscription.unsubscribe();
+      };
+    }
+
+    initAuth();
+  }, [supabase, handleAuthenticated]);
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      if (!supabase) {
+        setAuthError("Supabase is not configured.");
+        return;
+      }
+      const client = supabase;
+      setAuthLoading(true);
+      setAuthError(null);
+      try {
+        const { data, error } = await client.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        if (!data.user) throw new Error("No user returned.");
+        // handleAuthenticated runs via onAuthStateChange listener.
+      } catch (err) {
+        setAuthError(err instanceof Error ? err.message : "Sign in failed.");
+        setAuthLoading(false);
+      }
+    },
+    [supabase],
+  );
+
+  const signup = useCallback(
+    async (email: string, password: string) => {
+      if (!supabase) {
+        setAuthError("Supabase is not configured.");
+        return;
+      }
+      const client = supabase;
+      setAuthLoading(true);
+      setAuthError(null);
+      try {
+        const { data, error } = await client.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+        if (!data.user) throw new Error("No user returned.");
+      } catch (err) {
+        setAuthError(err instanceof Error ? err.message : "Sign up failed.");
+        setAuthLoading(false);
+      }
+    },
+    [supabase],
+  );
+
+  const logout = useCallback(async () => {
+    if (!supabase) return;
+    const client = supabase;
+    setSyncEnabled(false);
+    setRemoteState(null);
+    setUser(null);
+    await client.auth.signOut();
+    clearState();
+  }, [supabase]);
+
+  const resolveSync = useCallback(
+    async (choice: "useCloud" | "useLocal" | "merge") => {
+      if (!user) return;
+      setSyncEnabled(true);
+
+      if (choice === "useCloud" && remoteState) {
+        saveState(remoteState);
+        return;
+      }
+      if (choice === "useLocal") {
+        const local = loadState();
+        if (local) {
+          backupLocalLog();
+          await uploadStudyLog(user.id, local);
+        }
+        return;
+      }
+      if (choice === "merge" && remoteState) {
+        const local = loadState();
+        if (local) {
+          backupLocalLog();
+          const merged: StudyState = {
+            ...remoteState,
+            dailyLog: { ...(remoteState.dailyLog ?? {}), ...(local.dailyLog ?? {}) },
+            todos: { ...(remoteState.todos ?? {}), ...(local.todos ?? {}) },
+          };
+          saveState(merged);
+          await uploadStudyLog(user.id, merged);
+        }
+        return;
+      }
+    },
+    [user, remoteState],
+  );
 
   const mutate = useCallback((updater: (current: StudyState) => StudyState) => {
     setState((current) => normalizeState(updater(current)));
@@ -672,6 +895,16 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     drawerOpen,
     setDrawerOpen,
     toggleDrawer: () => setDrawerOpen((open) => !open),
+
+    user,
+    authLoading,
+    syncEnabled,
+    login,
+    signup,
+    logout,
+    authError,
+    remoteState,
+    resolveSync,
   };
 
   return <StudyContext.Provider value={value}>{children}</StudyContext.Provider>;
@@ -709,5 +942,7 @@ export function useStudy(): StudyContextValue {
 }
 
 export default StudyProvider;
+
+
 
 

@@ -2,7 +2,7 @@
 
 Last updated: 2026-11-14 (Session 6 — Lecture count preload from preloadlect.json)
 Stack: Next.js 16.4.6 (App Router, Turbopack, React 19.3) · TypeScript 5 (strict) · Tailwind CSS 4.3
-Persistence: browser `localStorage` (key `studyos:log`, version-guarded) — no backend yet.
+Persistence: browser `localStorage` (key `studyos:log`, version-guarded) + Supabase cloud sync (`user_study_logs` table, RLS, JSONB payload).
 Figma (visual authority): `https://www.figma.com/design/CebX98K0BKepBsWee0uE17/Untitled?node-id=0-1&m=dev`
 
 ## Verification status (as of this writing)
@@ -14,6 +14,7 @@ Figma (visual authority): `https://www.figma.com/design/CebX98K0BKepBsWee0uE17/U
 | Lint | `npm run lint` | ✅ clean (0 errors, 0 warnings) |
 | Production build | `npm run build` | ✅ compiles + typechecks + prerenders `/` |
 | SSR smoke test | `next start -p 3100` + HTTP fetch | ✅ 200, 24,826 bytes, all sections present, correct negatives |
+| Supabase migration | `apply_migration create_user_study_logs` | ✅ table + RLS policies created |
 | Manual browser pass | — | ⏳ pending (see `Tests_performed.md`) |
 
 > Baseline note: before this session the shell **did not build at all** (font `@import` order +

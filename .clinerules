@@ -1,7 +1,4 @@
-# EXISTING FIGMA DESIGN — EXTENSION MODE
 
-You are working on an existing, completed Figma design.
-Figma design link-https://www.figma.com/design/CebX98K0BKepBsWee0uE17/Untitled?node-id=0-1&m=dev&t=YayqdxWAr6MjmB69-1
 
 Your job is NOT to recreate, redesign, replace or reinterpret the existing design.
 
@@ -14,60 +11,3 @@ Strcitly Maintain:-
 Make changes and maintain these files after every Work(prompt) is completed and also commitfile regularly
 
 
-## 1. Preserve the existing design language
-
-Before making changes, inspect the relevant existing Figma frames.
-
-Understand and reuse:
-- Existing colour palette.
-- Typography and font hierarchy.
-- Spacing system.
-- Border radii.
-- Shadows.
-- Button styles.
-- Card styles.
-- Navigation patterns.
-- Iconography.
-- Component conventions.
-- Responsive behaviour.
-
-## 2. New additions
-
-Every new element must look like it belongs to the existing design.
-
-Do not introduce an unrelated visual style.
-
-Do not arbitrarily change existing components to accommodate new additions.
-
-## 3. Existing functionality
-
-Preserve all existing functionality and layouts.
-
-Do not delete, replace or restructure existing components without explicit permission.
-
-## 4. Before implementation
-
-First inspect the existing project and Figma design.
-
-Then:
-1. Identify reusable components.
-2. Identify existing design tokens.
-3. Determine where the requested addition belongs.
-4. Explain your proposed implementation.
-5. Wait for approval before making substantial changes.
-
-## 5. Quality requirements
-
-- Maintain visual consistency.
-- Use existing assets.
-- Match existing responsive behaviour.
-- Avoid unnecessary dependencies.
-- Keep components reusable.
-- Test the new additions.
-- Check that existing pages still work.
-
-## MOST IMPORTANT RULE
-
-Treat the existing Figma design as the visual authority.
-
-You are extending an existing product, not designing a different product.
