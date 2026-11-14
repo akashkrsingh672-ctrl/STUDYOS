@@ -344,3 +344,40 @@ Request: expose the PYQ section before lectures finish (collapsed until clicked 
 - Figma "Prototype hint" + "Study greeting" copy still not captured (Session 1 deviation 6).
 - No backend: persistence remains `localStorage` only.
 
+---
+
+## Session 5 — 2026-11-14 (JSON chapter preload + priority sort + info buttons + marks badges + hide completed)
+
+### Changes
+
+1. **Preloaded chapters from `cbsedatabaseprefetch.json`** — `src/lib/curriculum.ts` now imports all chapters from the JSON (Physics 14, Chemistry 10, Mathematics 13), replacing the hardcoded Figma curriculum of 4 chapters per subject. Subject index/detail meta kept from Figma design; PYQ template (4 sets/chapter) retained since JSON has no PYQ data.
+
+2. **Sort by priority** — Added `sortByPriority()` helper (P1 → P2 → P3, stable by chapter number) and a toggle in the Chapter Library header. When enabled, chapter cards are reordered by priority.
+
+3. **Info button on chapter cards** — Added an "i" info button at the top-right of each chapter header (left of the expand chevron). Opens `ChapterInfoDialog` showing unit, marks, difficulty, priority, key topics, and question types from the JSON.
+
+4. **Color-coded marks badges** — Added `categorizeByMarks()` helper that divides each subject's chapters into High/Medium/Low by mark-value tertiles. Physics skipped (no marks data). Badge shows coloured dot + `XX MARKS` between chapter title and "Ready to start" pill. HIGH/MEDIUM/LOW legend below chapter list. Colours: High `#18CFA5` (emerald), Medium `#FFB82E` (amber), Low `#82AEFF` (soft blue).
+
+5. **Hide completed dropdown** — Added below the sort slider with two checkboxes: (1) Lectures — hides chapters where all lectures are done; (2) Whole chapter — hides chapters with status "Chapter complete".
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `src/lib/types.ts` | Added `MarksLevel`, `ChapterPriority` types; extended `ChapterSeed` with JSON fields (chapterNumber, unit, marks, chapterMarksEstimate, unitMarks, questionTypes, keyTopics, difficulty, priority) |
+| `src/lib/curriculum.ts` | Rewrote to import `cbsedatabaseprefetch.json`; added `sortByPriority()` and `categorizeByMarks()` helpers |
+| `src/components/chapter/ChapterLibrary.tsx` | Added sort toggle, hide-completed dropdown, marks legend, ChapterInfoDialog rendering, chapter filtering |
+| `src/components/chapter/ChapterAccordion.tsx` | Added `marksLevel`/`marksValue`/`onInfoClick` props; MarksBadge between title and status pill; info button at top-right |
+| `src/components/chapter/ChapterInfoDialog.tsx` | New component: organised chapter info panel from JSON data |
+| `src/app/globals.css` | Added `--color-marks-high/medium/low` CSS variables + `@theme inline` aliases |
+| `scripts/logic-tests.mts` | Updated curriculum test (14/10/13 chapters); added `sortByPriority` and `categorizeByMarks` tests |
+
+### Verification (2026-11-14)
+
+| Gate | Command | Result |
+|------|---------|--------|
+| Type check | `npx tsc --noEmit` | ✅ 0 errors |
+| Logic/unit tests | `npm test` | ✅ **37 passed, 0 failed** |
+| Lint | `npm run lint` | ✅ clean (0 errors, 0 warnings) |
+| Production build | `npm run build` | ✅ compiles + typechecks + prerenders `/` |
+

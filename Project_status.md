@@ -1,6 +1,6 @@
 # Project Status — StudyOS
 
-Last updated: 2026-11-13 (Session 2 — Change Plan 2 complete)
+Last updated: 2026-11-14 (Session 5 — JSON chapter preload + priority sort + info buttons + marks badges + hide completed)
 Stack: Next.js 16.4.6 (App Router, Turbopack, React 19.3) · TypeScript 5 (strict) · Tailwind CSS 4.3
 Persistence: browser `localStorage` (key `studyos:log`, version-guarded) — no backend yet.
 Figma (visual authority): `https://www.figma.com/design/CebX98K0BKepBsWee0uE17/Untitled?node-id=0-1&m=dev`
@@ -10,7 +10,7 @@ Figma (visual authority): `https://www.figma.com/design/CebX98K0BKepBsWee0uE17/U
 | Gate | Command | Result |
 |---|---|---|
 | Type check | `npx tsc --noEmit` | ✅ 0 errors |
-| Logic/unit tests | `npm test` | ✅ **35 passed, 0 failed** |
+| Logic/unit tests | `npm test` | ✅ **37 passed, 0 failed** |
 | Lint | `npm run lint` | ✅ clean (0 errors, 0 warnings) |
 | Production build | `npm run build` | ✅ compiles + typechecks + prerenders `/` |
 | SSR smoke test | `next start -p 3100` + HTTP fetch | ✅ 200, 24,826 bytes, all sections present, correct negatives |
@@ -61,6 +61,16 @@ Figma (visual authority): `https://www.figma.com/design/CebX98K0BKepBsWee0uE17/U
 | Lecture whole row toggles (click + Enter/Space) | ✅ done | `components/chapter/LectureChecklist.tsx` |
 | `STORAGE_VERSION` 2 → 3 migration, backfills `completedCount`, no data loss | ✅ done | `lib/storage.ts`, `lib/state.ts`, `lib/planLogic.ts` (`normalizePyqTodo`) |
 
+## Session 5 coverage (JSON chapter preload)
+
+| Item | Status | Where |
+|------|--------|-------|
+| Chapters preloaded from `cbsedatabaseprefetch.json` (Physics 14 / Chemistry 10 / Mathematics 13) | ✅ done | `lib/curriculum.ts`, `lib/types.ts` |
+| Sort by priority toggle (P1 → P2 → P3) | ✅ done | `components/chapter/ChapterLibrary.tsx`, `lib/curriculum.ts` (`sortByPriority`) |
+| Info button on chapter cards (key topics, question types, difficulty, priority, unit, marks) | ✅ done | `components/chapter/ChapterInfoDialog.tsx`, `components/chapter/ChapterAccordion.tsx` |
+| Color-coded marks badges (Chemistry / Mathematics only, by mark tertiles) | ✅ done | `components/chapter/ChapterAccordion.tsx` (`MarksBadge`), `lib/curriculum.ts` (`categorizeByMarks`), `app/globals.css` |
+| Hide completed dropdown (Lectures / Whole chapter checkboxes) | ✅ done | `components/chapter/ChapterLibrary.tsx` |
+
 ## Requirements traceability
 
 | # | Requirement | Implementation |
@@ -83,7 +93,7 @@ src/
   lib/
     types.ts           domain model
     date.ts            local-time ISO date helpers + calendar grid
-    curriculum.ts      Figma curriculum (3 subjects × 4 chapters, 4 PYQ sets each)
+    curriculum.ts      JSON chapter data + sort/marks helpers (Physics 14 / Chemistry 10 / Mathematics 13)
     planLogic.ts       pure logic (counts, day stats, roll-ups, row status, queue moves, factories)
     storage.ts         localStorage get/set/clear + version guard
     state.ts           initial state, normalize (derived rebuild), hydrate (merge/migrate)
@@ -94,7 +104,7 @@ src/
     common/            Stepper · AssignToDateControl · CalendarPopover
     dashboard/         ArcGauge · DailyGoalGauge · TodayChecklist · MobileGoalBar
     todo/              TodoDrawer · TodoList · MoraleCard
-    chapter/           ChapterLibrary · ChapterAccordion · LectureChecklist · PyqChecklist
+    chapter/           ChapterLibrary · ChapterAccordion · LectureChecklist · PyqChecklist · ChapterInfoDialog
     layout/            TopNavigation · Sidebar · Footer (unchanged)
     subject/           SubjectPicker
 scripts/logic-tests.mts   Node-based logic + persistence tests (`npm test`)
@@ -124,6 +134,9 @@ Added / corrected: `--surface-subtle|muted|raised`, `--drawer #0e1729`, `--accen
 `--on-accent #172b40`, radii `--radius-control 10 / --radius-soft 9 / --radius-checkbox 6 /
 --radius-pill 13 / --radius-assign 16`, `--shadow-tooltip|drawer|popover`, the missing
 `--color-primary` / `--color-muted` aliases, and the `scrollbar-hide` utility.
+
+**Added this session:** `--color-marks-high #18CFA5`, `--color-marks-medium #FFB82E`,
+`--color-marks-low #82AEFF` (+ `@theme inline` aliases for Tailwind `bg-marks-*` / `text-marks-*`).
 
 ## Commands
 

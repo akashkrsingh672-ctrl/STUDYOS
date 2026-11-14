@@ -3,6 +3,12 @@
 
 export type SubjectName = "Physics" | "Chemistry" | "Mathematics";
 
+/** Marks badge level used for the colour-coded chapter mark badge (Chemistry / Mathematics only). */
+export type MarksLevel = "High" | "Medium" | "Low";
+
+/** Chapter priority from cbsedatabaseprefetch.json: P1 → P2 → P3. */
+export type ChapterPriority = "P1" | "P2" | "P3";
+
 /** Where a study item was assigned to a day from. */
 export type TodoSource = "today" | "tomorrow" | "custom";
 
@@ -21,6 +27,20 @@ export interface ChapterSeed {
   index: string;
   title: string;
   pyqs: PyqSetSeed[];
+  /** Chapter number from cbsedatabaseprefetch.json. */
+  chapterNumber: number;
+  /** Unit / topic grouping from the JSON. */
+  unit: string;
+  /** Raw marks from the JSON (may be null). */
+  marks: number | null;
+  /** chapter_marks_estimate from the JSON (may be null). */
+  chapterMarksEstimate: number | null;
+  /** unit_marks from the JSON (may be null). */
+  unitMarks: number | null;
+  questionTypes: string[];
+  keyTopics: string[];
+  difficulty: "High" | "Medium" | "Low";
+  priority: ChapterPriority;
 }
 
 export interface SubjectSeed {

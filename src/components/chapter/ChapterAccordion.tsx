@@ -4,12 +4,18 @@ import { useState } from "react";
 import LectureChecklist from "@/components/chapter/LectureChecklist";
 import PyqChecklist from "@/components/chapter/PyqChecklist";
 import { useStudy } from "@/lib/store";
-import type { ChapterSeed, SubjectName } from "@/lib/types";
+import type { ChapterSeed, SubjectName, MarksLevel } from "@/lib/types";
 
 interface ChapterAccordionProps {
   subject: SubjectName;
   chapter: ChapterSeed;
   defaultExpanded?: boolean;
+  /** Marks badge level (High / Medium / Low) — Chemistry / Mathematics only. */
+  marksLevel?: MarksLevel;
+  /** Marks value to display (may be null). */
+  marksValue: number | null;
+  /** Opens the chapter info dialog. */
+  onInfoClick?: () => void;
 }
 
 /**
@@ -22,12 +28,23 @@ export default function ChapterAccordion({
   subject,
   chapter,
   defaultExpanded = false,
+  marksLevel,
+  marksValue,
+  onInfoClick,
 }: ChapterAccordionProps) {
   const { chapterProgress } = useStudy();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const progress = chapterProgress(subject, chapter.id);
 
   const complete = progress.status === "Chapter complete";
+
+  const LEVEL_STYLE: Record<MarksLevel, string> = {
+    High: "bg-marks-high/20 text-marks-high border-marks-high/40",
+    Medium: "bg-marks-medium/20 text-marks-medium border-marks-medium/40",
+    Low: "bg-marks-low/20 text-marks-low border-marks-low/40",
+  };
+
+  const levelStyle = marksLevel ? LEVEL_STYLE[marksLevel] : "";
 
   return (
     <div
@@ -47,6 +64,16 @@ export default function ChapterAccordion({
         <span className="min-w-[160px] flex-1 truncate font-display text-[17px] font-medium text-primary">
           {chapter.title}
         </span>
+
+        {/* Colour-coded marks badge between title and status pill */}
+        {marksLevel && marksValue != null && (
+          <span
+            className={`flex h-[20px] items-center gap-1 rounded-stepper px-1.5 py-0.5 border text-[10px] font-medium ${levelStyle}`}
+          >
+            <span className="size-[7px] rounded-full bg-current"></span>
+            {marksValue} MARKS
+          </span>
+        )}
         <span
           className={`flex h-[26px] w-[112px] shrink-0 items-center justify-center rounded-pill text-[10px] font-medium ${
             complete ? "bg-success-soft-strong text-success" : "bg-accent-softer text-muted"
@@ -54,6 +81,21 @@ export default function ChapterAccordion({
         >
           {progress.status}
         </span>
+
+        {/* Info button at top-right of card */}
+        {onInfoClick ? (
+          <button
+            type="button"
+            onClick={onInfoClick}
+            aria-label="Chapter info"
+            className="flex size-[10px] shrink-0 items-center justify-center rounded-full bg-surface-raised text-muted hover:text-primary hover:bg-surface-hover transition-colors"
+          >
+            <span className="text-[10px] leading-none" aria-hidden="true">
+              i
+            </span>
+          </button>
+        ) : null}
+
         <span className="shrink-0 text-[18px] leading-none text-muted" aria-hidden="true">
           {expanded ? "⌃" : "⌄"}
         </span>

@@ -35,6 +35,11 @@
   --success: #78dbb2;
   --on-accent: #172b40;
 
+  /* Marks badge colours (High / Medium / Low) */
+  --color-marks-high: #18CFA5;
+  --color-marks-medium: #FFB82E;
+  --color-marks-low: #82AEFF;
+
   /* Fonts */
   --font-sans: "Inter", sans-serif;
   --font-display: "Space Grotesk", sans-serif;
@@ -82,6 +87,9 @@
   --color-success-soft-strong: var(--success-soft-strong);
   --color-success-check: var(--success-check);
   --color-success-border: var(--success-border);
+  --color-marks-high: var(--color-marks-high);
+  --color-marks-medium: var(--color-marks-medium);
+  --color-marks-low: var(--color-marks-low);
   --color-text-primary: var(--text-primary);
   --color-text-muted: var(--text-muted);
   --color-accent: var(--accent);

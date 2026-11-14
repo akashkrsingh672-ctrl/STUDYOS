@@ -49,7 +49,7 @@ import {
   relativeLabel,
   toDateKey,
 } from "../src/lib/date.ts";
-import { SUBJECTS, chaptersOf, findChapter } from "../src/lib/curriculum.ts";
+import { SUBJECTS, chaptersOf, findChapter, sortByPriority, categorizeByMarks } from "../src/lib/curriculum.ts";
 import { EXAM_DATE, daysUntilExam } from "../src/lib/exam.ts";
 import {
   STORAGE_KEY,
@@ -165,14 +165,19 @@ test("the exam countdown targets 16 Feb 2027", () => {
 
 /* -------------------------------------------------------------- curriculum */
 
-test("curriculum mirrors the Figma chapter lists", () => {
+test("curriculum mirrors the cbsedatabaseprefetch.json chapter lists", () => {
   assert.equal(SUBJECTS.length, 3);
   assert.deepEqual(
     SUBJECTS.map((subject) => subject.name),
     ["Physics", "Chemistry", "Mathematics"],
   );
+  const expectedCounts: Record<string, number> = { Physics: 14, Chemistry: 10, Mathematics: 13 };
   for (const subject of SUBJECTS) {
-    assert.equal(subject.chapters.length, 4, `${subject.name} should have 4 chapters`);
+    assert.equal(
+      subject.chapters.length,
+      expectedCounts[subject.name],
+      `${subject.name} should have ${expectedCounts[subject.name]} chapters`,
+    );
     assert.equal(subject.chapters[0].index, "01");
     assert.deepEqual(
       subject.chapters[0].pyqs.map((pyq) => pyq.label),
@@ -187,6 +192,59 @@ test("curriculum mirrors the Figma chapter lists", () => {
   assert.equal(chaptersOf("Mathematics")[0].title, "Relations and Functions");
   assert.equal(findChapter("Chemistry", "solutions")?.title, "Solutions");
   assert.equal(findChapter("Physics", "does-not-exist"), undefined);
+});
+
+test("sortByPriority orders chapters P1 → P2 → P3, stable by chapter number", () => {
+  const physics = chaptersOf("Physics");
+  const sorted = sortByPriority(physics);
+
+  // Extract priorities in order
+  const priorities = sorted.map((c) => c.priority);
+  // Should be non-decreasing (P1 < P2 < P3)
+  const order = { P1: 0, P2: 1, P3: 2 };
+  for (let i = 1; i < priorities.length; i++) {
+    assert.ok(
+      order[priorities[i]] >= order[priorities[i - 1]],
+      `Priority should not decrease: ${priorities[i - 1]} → ${priorities[i]}`,
+    );
+  }
+
+  // Within same priority, chapter numbers should be ascending
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].priority === sorted[i - 1].priority) {
+      assert.ok(
+        sorted[i].chapterNumber > sorted[i - 1].chapterNumber,
+        `Same priority chapters should be ordered by number: ${sorted[i - 1].chapterNumber} → ${sorted[i].chapterNumber}`,
+      );
+    }
+  }
+});
+
+test("categorizeByMarks divides chapters into High / Medium / Low by marks tertiles", () => {
+  const chemistry = chaptersOf("Chemistry");
+  const levels = categorizeByMarks(chemistry);
+
+  // Chemistry has marks for all chapters, so every chapter should be categorized
+  for (const chapter of chemistry) {
+    assert.ok(levels.has(chapter.id), `${chapter.title} should have a marks level`);
+  }
+
+  // All three levels should be present (10 chapters → tertiles give Low/Medium/High)
+  const levelValues = new Set(levels.values());
+  assert.ok(levelValues.has("Low"), "Should have Low level");
+  assert.ok(levelValues.has("Medium"), "Should have Medium level");
+  assert.ok(levelValues.has("High"), "Should have High level");
+
+  // Physics has marks data but we skip it in UI; categorizeByMarks still works on the data
+  const physics = chaptersOf("Physics");
+  const physicsLevels = categorizeByMarks(physics);
+  // Physics chapters with marks should be categorized
+  const physicsWithMarks = physics.filter((c) => c.marks != null || c.chapterMarksEstimate != null || c.unitMarks != null);
+  if (physicsWithMarks.length > 0) {
+    for (const chapter of physicsWithMarks) {
+      assert.ok(physicsLevels.has(chapter.id), `${chapter.title} should have a marks level`);
+    }
+  }
 });
 
 /* ------------------------------------------------------------- log items */

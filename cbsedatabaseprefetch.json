@@ -1,0 +1,409 @@
+{
+  "subjects": [
+    {
+      "name": "Physics",
+      "class": 12,
+      "session": "2026-27",
+      "chapters": [
+        {
+          "chapter_number": 1,
+          "chapter_title": "Electric Charges and Fields",
+          "unit": "Electrostatics",
+          "marks": 16,
+          "chapter_marks_estimate": 8,
+          "question_types": ["MCQ", "Assertion-Reason (1m)", "Short Answer (2m)"],
+          "key_topics": ["Coulomb's law", "electric field and flux", "Gauss's law (intro)", "point charge fields"],
+          "difficulty": "Medium",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 2,
+          "chapter_title": "Electrostatic Potential and Capacitance",
+          "unit": "Electrostatics",
+          "marks": 16,
+          "chapter_marks_estimate": 8,
+          "question_types": ["MCQ", "Short Answer (2m)", "Long Answer (5m)"],
+          "key_topics": ["Electric potential", "equipotential surfaces", "capacitance", "parallel/series capacitors"],
+          "difficulty": "Medium",
+          "priority": "P2"
+        },
+        {
+          "chapter_number": 3,
+          "chapter_title": "Current Electricity",
+          "unit": "Current Electricity",
+          "marks": null,
+          "chapter_marks_estimate": null,
+          "question_types": ["MCQ", "Short Answer (2m)", "Numerical"],
+          "key_topics": ["Ohm's law", "resistivity", "Kirchhoff's laws", "Wheatstone bridge", "DRL circuits"],
+          "difficulty": "Medium",
+          "priority": "P2"
+        },
+        {
+          "chapter_number": 4,
+          "chapter_title": "Moving Charges and Magnetism",
+          "unit": "Magnetic Effects of Current and Magnetism",
+          "marks": 17,
+          "chapter_marks_estimate": 8.5,
+          "question_types": ["MCQ", "Short Answer (2m)", "Case Study (4m)"],
+          "key_topics": ["Magnetic field", "Biot–Savart law", "Ampère's law", "moving charges in fields"],
+          "difficulty": "High",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 5,
+          "chapter_title": "Magnetism and Matter",
+          "unit": "Magnetic Effects of Current and Magnetism",
+          "marks": 17,
+          "chapter_marks_estimate": 8.5,
+          "question_types": ["MCQ", "Short Answer (2m)"],
+          "key_topics": ["Magnetic dipole moment", "Earth's magnetism", "hysteresis", "relative permeability"],
+          "difficulty": "High",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 6,
+          "chapter_title": "Electromagnetic Induction",
+          "unit": "Electromagnetic Induction and Alternating Currents",
+          "marks": null,
+          "chapter_marks_estimate": null,
+          "question_types": ["Case Study (4m)", "Assertion-Reason (1m)"],
+          "key_topics": ["Faraday's law", "Lenz's law", "eddy currents", "self/cross induction", "induced EMF"],
+          "difficulty": "High",
+          "priority": "P2"
+        },
+        {
+          "chapter_number": 7,
+          "chapter_title": "Alternating Current",
+          "unit": "Electromagnetic Induction and Alternating Currents",
+          "marks": null,
+          "chapter_marks_estimate": null,
+          "question_types": ["Case Study (4m)", "Long Answer (5m)"],
+          "key_topics": ["AC generator", "reactance (XL, XC)", "RLC resonance", "transformers"],
+          "difficulty": "High",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 8,
+          "chapter_title": "Electromagnetic Waves",
+          "unit": "Electromagnetic Waves",
+          "marks": 18,
+          "chapter_marks_estimate": 18,
+          "question_types": ["MCQ", "Short Answer (2m)", "Assertion-Reason (1m)"],
+          "key_topics": ["Nature of EM waves", "spectrum (radio to gamma)", "applications"],
+          "difficulty": "Medium",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 9,
+          "chapter_title": "Ray Optics and Optical Instruments",
+          "unit": "Optics",
+          "marks": null,
+          "chapter_marks_estimate": null,
+          "question_types": ["MCQ", "Short Answer (3m)"],
+          "key_topics": ["Reflection/refraction", "lens formula", "microscope, telescope", "Snell's law"],
+          "difficulty": "Medium",
+          "priority": "P2"
+        },
+        {
+          "chapter_number": 10,
+          "chapter_title": "Wave Optics",
+          "unit": "Optics",
+          "marks": null,
+          "chapter_marks_estimate": null,
+          "question_types": ["MCQ", "Short Answer (3m)"],
+          "key_topics": ["Interference", "diffraction", "Huygens' principle", "gratings"],
+          "difficulty": "High",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 11,
+          "chapter_title": "Dual Nature of Radiation and Matter",
+          "unit": "Dual Nature of Radiation and Matter",
+          "marks": 12,
+          "chapter_marks_estimate": 12,
+          "question_types": ["Case Study (4m)", "MCQ"],
+          "key_topics": ["Photoelectric effect", "Einstein's equation", "matter waves", "Heisenberg principle"],
+          "difficulty": "High",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 12,
+          "chapter_title": "Atoms",
+          "unit": "Atoms and Nuclei",
+          "marks": null,
+          "chapter_marks_estimate": null,
+          "question_types": ["Short Answer (3m)"],
+          "key_topics": ["Bohr model", "energy levels", "spectral lines"],
+          "difficulty": "Medium",
+          "priority": "P2"
+        },
+        {
+          "chapter_number": 13,
+          "chapter_title": "Nuclei",
+          "unit": "Atoms and Nuclei",
+          "marks": null,
+          "chapter_marks_estimate": null,
+          "question_types": ["Short Answer (3m)"],
+          "key_topics": ["Binding energy", "radioactivity", "nuclear reactions"],
+          "difficulty": "High",
+          "priority": "P2"
+        },
+        {
+          "chapter_number": 14,
+          "chapter_title": "Semiconductor Electronics: Materials, Devices and Simple Circuits",
+          "unit": "Electronic Devices",
+          "marks": 7,
+          "chapter_marks_estimate": 7,
+          "question_types": ["Case Study (4m)", "MCQ"],
+          "key_topics": ["Semiconductors", "p-n junction", "diodes", "transistors", "logic circuits"],
+          "difficulty": "High",
+          "priority": "P1"
+        }
+      ]
+    },
+    {
+      "name": "Chemistry",
+      "class": 12,
+      "session": "2026-27",
+      "chapters": [
+        {
+          "chapter_number": 1,
+          "chapter_title": "Solutions",
+          "unit": "Solutions",
+          "marks": 7,
+          "question_types": ["MCQ", "Short Answer (2m)"],
+          "key_topics": ["Concentration units", "solubility", "Vapor pressure", "colligative properties"],
+          "difficulty": "Medium",
+          "priority": "P2"
+        },
+        {
+          "chapter_number": 2,
+          "chapter_title": "Electrochemistry",
+          "unit": "Electrochemistry",
+          "marks": 9,
+          "question_types": ["MCQ", "Short Answer (2m)"],
+          "key_topics": ["Galvanic cells", "Nernst eqn", "electrolysis", "conductance"],
+          "difficulty": "High",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 3,
+          "chapter_title": "Chemical Kinetics",
+          "unit": "Chemical Kinetics",
+          "marks": 7,
+          "question_types": ["MCQ", "Short Answer (2m)"],
+          "key_topics": ["Rate laws", "order of reaction", "Arrhenius eqn", "half-life"],
+          "difficulty": "High",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 4,
+          "chapter_title": "d- and f-Block Elements",
+          "unit": "d- and f- Block",
+          "marks": 7,
+          "question_types": ["MCQ", "Short Answer (2m)"],
+          "key_topics": ["Electronic configuration (d,f)", "general properties", "lanthanoids/actinoids"],
+          "difficulty": "High",
+          "priority": "P2"
+        },
+        {
+          "chapter_number": 5,
+          "chapter_title": "Coordination Compounds",
+          "unit": "Coordination Compounds",
+          "marks": 7,
+          "question_types": ["MCQ", "Assertion-Reason (1m)"],
+          "key_topics": ["Werner theory", "ligands, chelation", "isomerism", "bonding models"],
+          "difficulty": "High",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 6,
+          "chapter_title": "Haloalkanes and Haloarenes",
+          "unit": "Haloalkanes and Haloarenes",
+          "marks": 6,
+          "question_types": ["MCQ", "Short Answer (2m)"],
+          "key_topics": ["Nomenclature", "preparation", "SN1/SN2", "aromatic halides reactivity"],
+          "difficulty": "High",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 7,
+          "chapter_title": "Alcohols, Phenols and Ethers",
+          "unit": "Alcohols, Phenols and Ethers",
+          "marks": 6,
+          "question_types": ["MCQ", "Assertion-Reason (1m)"],
+          "key_topics": ["OH compounds", "nomenclature", "properties", "hydrogen bonding"],
+          "difficulty": "Medium",
+          "priority": "P2"
+        },
+        {
+          "chapter_number": 8,
+          "chapter_title": "Aldehydes, Ketones and Carboxylic Acids",
+          "unit": "Aldehydes, Ketones and Carboxylic Acids",
+          "marks": 8,
+          "question_types": ["MCQ", "Short Answer (3m)"],
+          "key_topics": ["Structure/Carbonyl", "preparation", "reactions", "nomenclature"],
+          "difficulty": "High",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 9,
+          "chapter_title": "Amines",
+          "unit": "Amines",
+          "marks": 6,
+          "question_types": ["MCQ", "Assertion-Reason (1m)"],
+          "key_topics": ["Structure, classification", "basicity", "preparation", "diazonium salts"],
+          "difficulty": "High",
+          "priority": "P2"
+        },
+        {
+          "chapter_number": 10,
+          "chapter_title": "Biomolecules",
+          "unit": "Biomolecules",
+          "marks": 7,
+          "question_types": ["MCQ", "Short Answer (3m)"],
+          "key_topics": ["Carbohydrates, proteins, enzymes, vitamins, nucleic acids"],
+          "difficulty": "Medium",
+          "priority": "P2"
+        }
+      ]
+    },
+    {
+      "name": "Mathematics",
+      "class": 12,
+      "session": "2026-27",
+      "chapters": [
+        {
+          "chapter_number": 1,
+          "chapter_title": "Relations and Functions",
+          "unit": "Relations & Functions",
+          "unit_marks": 8,
+          "question_types": ["MCQ", "Assertion-Reason (1m)"],
+          "key_topics": ["Equivalence relations", "one-to-one/onto", "partial functions"],
+          "difficulty": "High",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 2,
+          "chapter_title": "Inverse Trigonometric Functions",
+          "unit": "Relations & Functions",
+          "unit_marks": 8,
+          "question_types": ["MCQ", "Short Answer (2m)"],
+          "key_topics": ["Principal values", "range/domain", "graphs of sin⁻¹x, cos⁻¹x, tan⁻¹x"],
+          "difficulty": "Medium",
+          "priority": "P2"
+        },
+        {
+          "chapter_number": 3,
+          "chapter_title": "Matrices",
+          "unit": "Algebra",
+          "unit_marks": 10,
+          "question_types": ["MCQ", "Very Short (2m)"],
+          "key_topics": ["Matrix operations", "inverse", "determinant", "system of eqns (Cramer's)"],
+          "difficulty": "High",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 4,
+          "chapter_title": "Determinants",
+          "unit": "Algebra",
+          "unit_marks": 10,
+          "question_types": ["MCQ", "Very Short (2m)"],
+          "key_topics": ["Properties of determinants", "applications (area, invert matrix)"],
+          "difficulty": "Medium",
+          "priority": "P2"
+        },
+        {
+          "chapter_number": 5,
+          "chapter_title": "Continuity and Differentiability",
+          "unit": "Calculus",
+          "unit_marks": 35,
+          "question_types": ["MCQ", "Short Answer (2-3m)"],
+          "key_topics": ["Limits, continuity", "differentiability", "chain rule", "inverse trig derivatives"],
+          "difficulty": "High",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 6,
+          "chapter_title": "Applications of Derivatives",
+          "unit": "Calculus",
+          "unit_marks": 35,
+          "question_types": ["Short Answer (3m)", "Long Answer (5m)"],
+          "key_topics": ["Tangents/Norms", "Maxima-Minima (1st & 2nd derivative tests)", "increasing/decreasing"],
+          "difficulty": "High",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 7,
+          "chapter_title": "Integrals",
+          "unit": "Calculus",
+          "unit_marks": 35,
+          "question_types": ["MCQ", "Short Answer (2-3m)"],
+          "key_topics": ["Indefinite integration", "substitution", "integration by parts", "standard integrals"],
+          "difficulty": "High",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 8,
+          "chapter_title": "Applications of Integrals",
+          "unit": "Calculus",
+          "unit_marks": 35,
+          "question_types": ["Long Answer (5m)"],
+          "key_topics": ["Area under curves", "area between curves (in standard forms)"],
+          "difficulty": "Medium",
+          "priority": "P2"
+        },
+        {
+          "chapter_number": 9,
+          "chapter_title": "Differential Equations",
+          "unit": "Calculus",
+          "unit_marks": 35,
+          "question_types": ["Short Answer (3m)"],
+          "key_topics": ["Formation of DE", "solutions of first order DEs (separable, homogeneous)"],
+          "difficulty": "High",
+          "priority": "P2"
+        },
+        {
+          "chapter_number": 10,
+          "chapter_title": "Vector Algebra",
+          "unit": "Vectors & 3D Geometry",
+          "unit_marks": 14,
+          "question_types": ["MCQ", "Very Short (2m)"],
+          "key_topics": ["Vectors in 3D, dot/cross products", "applications (angles, projections)"],
+          "difficulty": "Medium",
+          "priority": "P2"
+        },
+        {
+          "chapter_number": 11,
+          "chapter_title": "Three-dimensional Geometry",
+          "unit": "Vectors & 3D Geometry",
+          "unit_marks": 14,
+          "question_types": ["MCQ", "Short Answer (3m)"],
+          "key_topics": ["Skew lines", "line equations in 3D", "distance between points/line"],
+          "difficulty": "High",
+          "priority": "P1"
+        },
+        {
+          "chapter_number": 12,
+          "chapter_title": "Linear Programming",
+          "unit": "Linear Programming",
+          "unit_marks": 5,
+          "question_types": ["Very Short (2m)", "Short Answer (3m)"],
+          "key_topics": ["Feasible region", "constraint inequalities", "optimization"],
+          "difficulty": "Low",
+          "priority": "P3"
+        },
+        {
+          "chapter_number": 13,
+          "chapter_title": "Probability",
+          "unit": "Probability",
+          "unit_marks": 8,
+          "question_types": ["MCQ", "Case Study (4m)"],
+          "key_topics": ["Conditional probability", "Bayes' theorem", "independent events"],
+          "difficulty": "Medium",
+          "priority": "P2"
+        }
+      ]
+    }
+  ]
+}

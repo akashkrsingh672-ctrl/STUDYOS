@@ -1,6 +1,6 @@
 # Tests Performed — StudyOS
 
-Every test below was executed in this repository on **2026-11-13** (Windows, PowerShell,
+Every test below was executed in this repository on **2026-11-14** (Windows, PowerShell,
 Node v26.13.0, npm 11.20.0). Only tests that actually ran are listed as performed; the interactive
 browser checklist at the bottom is marked **pending** because I cannot drive a browser from here.
 
@@ -22,7 +22,7 @@ required; no git repo existed → `git init`.
 
 Both build blockers were fixed during the realignment and are covered by T4.
 
-## T2 · Logic + persistence tests — ✅ PASSED (35/35)
+## T2 · Logic + persistence tests — ✅ PASSED (37/37)
 
 ```bash
 npm test
@@ -31,12 +31,14 @@ npm test
 
 ```
 StudyOS logic tests
+  PASS  curriculum mirrors the cbsedatabaseprefetch.json chapter lists   (14/10/13 chapters)
+  PASS  sortByPriority orders chapters P1 → P2 → P3, stable by chapter number
+  PASS  categorizeByMarks divides chapters into High / Medium / Low by marks tertiles
   PASS  count control clamps to 0–15                                    (Req 2)
   PASS  date keys round-trip in local time and step across boundaries
   PASS  relative labels match the working-log wording
   PASS  month grid is Monday-first and complete
   PASS  the exam countdown targets 16 Feb 2027
-  PASS  curriculum mirrors the Figma chapter lists        (3 × 4 chapters, 4 PYQ sets each)
   PASS  lecture items are built as 1-unit checklist rows
   PASS  PYQ items carry the set size as their question count
   PASS  day stats roll lectures, questions and chapter breakdown together   (Req 1)
@@ -68,7 +70,7 @@ StudyOS logic tests
   PASS  a v2 log backfills question progress without losing data (Plan 3)
   PASS  a stale zero-question row is dropped on normalize (Plan 3)
 
-35 passed, 0 failed
+37 passed, 0 failed
 ```
 
 Key assertions worth calling out:
