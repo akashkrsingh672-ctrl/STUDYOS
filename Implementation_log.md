@@ -381,3 +381,35 @@ Request: expose the PYQ section before lectures finish (collapsed until clicked 
 | Lint | `npm run lint` | ✅ clean (0 errors, 0 warnings) |
 | Production build | `npm run build` | ✅ compiles + typechecks + prerenders `/` |
 
+---
+
+## Session 6 — 2026-11-14 (Lecture count preload from preloadlect.json)
+
+### Changes
+
+1. **Preloaded lecture counts from `preloadlect.json` into chapter state** — New `src/lib/preloadLectures.ts` module loads `preloadlect.json`, normalizes chapter titles (handles `...` truncation, "by Deepak Bhatt Sir" suffixes, parentheticals, `&` → `and`), and fuzzy-matches them against webapp chapters from `cbsedatabaseprefetch.json`. `src/lib/state.ts` `createChapterState()` now accepts an optional `preloadedLectures` parameter: when a match is found, `lectures` is set to that count and `lecturesSaved` is `true`, so each chapter section opens with its lecture count already configured and rows unticked. Chapters without a preload match fall back to `DEFAULT_CHAPTER_LECTURES` (3).
+
+   Preloaded totals per subject:
+   - Physics: 76 lectures across 14 chapters (12 preloaded + 2 defaults)
+   - Mathematics: 83 lectures across 13 chapters (8 preloaded + 5 defaults)
+   - Chemistry: 82 lectures across 10 chapters (8 preloaded + 2 defaults)
+
+   Chapters with `null` in `preloadlect.json` (Integrals-null, Linear Programming, Vector, Three Dimensional Geometry, Probability in Mathematics; Organic Chemistry, Coordination Compounds in Chemistry) keep `null` — they fall back to the default and are not preloaded.
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `src/lib/preloadLectures.ts` | New: loads and normalizes `preloadlect.json`; `getPreloadedLectures(subject, chapterTitle)` lookup |
+| `src/lib/state.ts` | Import `getPreloadedLectures`; `createChapterState(seed, preloadedLectures?)` uses preloaded count; `createInitialState()` passes preloaded value per chapter |
+
+### Verification (2026-11-14)
+
+| Gate | Command | Result |
+|------|---------|--------|
+| Type check | `npx tsc --noEmit` | ✅ 0 errors |
+| Logic/unit tests | `npm test` | ✅ **37 passed, 0 failed** |
+| Lint | `npm run lint` | ✅ clean (0 errors, 0 warnings) |
+| Production build | `npm run build` | ✅ compiles + typechecks + prerenders `/` |
+
+

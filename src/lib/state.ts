@@ -1,4 +1,5 @@
 import { DEFAULT_CHAPTER_LECTURES, SUBJECTS } from "./curriculum.ts";
+import { getPreloadedLectures } from "./preloadLectures.ts";
 import {
   buildDailyLog,
   clampCount,
@@ -30,10 +31,13 @@ export function createPyqSetState(pyq: ChapterSeed["pyqs"][number]): PyqSetState
   };
 }
 
-export function createChapterState(seed: ChapterSeed): ChapterState {
+export function createChapterState(
+  seed: ChapterSeed,
+  preloadedLectures: number | null = null,
+): ChapterState {
   return {
-    lectures: clampCount(DEFAULT_CHAPTER_LECTURES),
-    lecturesSaved: false,
+    lectures: clampCount(preloadedLectures ?? DEFAULT_CHAPTER_LECTURES),
+    lecturesSaved: preloadedLectures != null,
     lectureAssign: null,
     lectureDoneHistory: [],
     pyqs: seed.pyqs.map(createPyqSetState),
@@ -61,7 +65,8 @@ export function createInitialState(): StudyState {
   for (const subject of SUBJECTS) {
     const subjectChapters: Record<string, ChapterState> = {};
     for (const chapter of subject.chapters) {
-      subjectChapters[chapter.id] = createChapterState(chapter);
+      const preloaded = getPreloadedLectures(subject.name, chapter.title);
+      subjectChapters[chapter.id] = createChapterState(chapter, preloaded);
     }
     chapters[subject.name] = subjectChapters;
 

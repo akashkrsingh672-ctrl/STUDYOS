@@ -1,6 +1,6 @@
 # Project Status — StudyOS
 
-Last updated: 2026-11-14 (Session 5 — JSON chapter preload + priority sort + info buttons + marks badges + hide completed)
+Last updated: 2026-11-14 (Session 6 — Lecture count preload from preloadlect.json)
 Stack: Next.js 16.4.6 (App Router, Turbopack, React 19.3) · TypeScript 5 (strict) · Tailwind CSS 4.3
 Persistence: browser `localStorage` (key `studyos:log`, version-guarded) — no backend yet.
 Figma (visual authority): `https://www.figma.com/design/CebX98K0BKepBsWee0uE17/Untitled?node-id=0-1&m=dev`
@@ -70,6 +70,13 @@ Figma (visual authority): `https://www.figma.com/design/CebX98K0BKepBsWee0uE17/U
 | Info button on chapter cards (key topics, question types, difficulty, priority, unit, marks) | ✅ done | `components/chapter/ChapterInfoDialog.tsx`, `components/chapter/ChapterAccordion.tsx` |
 | Color-coded marks badges (Chemistry / Mathematics only, by mark tertiles) | ✅ done | `components/chapter/ChapterAccordion.tsx` (`MarksBadge`), `lib/curriculum.ts` (`categorizeByMarks`), `app/globals.css` |
 | Hide completed dropdown (Lectures / Whole chapter checkboxes) | ✅ done | `components/chapter/ChapterLibrary.tsx` |
+
+## Session 6 coverage (Lecture count preload from preloadlect.json)
+
+| Item | Status | Where |
+|------|--------|-------|
+| Lecture counts preloaded from `preloadlect.json` into chapter state (Physics 76 / Mathematics 83 / Chemistry 82 total) | ✅ done | `lib/preloadLectures.ts`, `lib/state.ts` (`createChapterState`, `createInitialState`) |
+| Chapters without preload match fall back to `DEFAULT_CHAPTER_LECTURES` (3) | ✅ done | `lib/state.ts` |
 
 ## Requirements traceability
 
