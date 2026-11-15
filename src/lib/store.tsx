@@ -42,6 +42,10 @@ import {
   downloadStudyLog,
   cloudLogExists,
   backupLocalLog,
+  isSyncResolved,
+  getSyncResolvedRecord,
+  markSyncResolved,
+  clearSyncResolved,
 } from "@/lib/sync";
 import type {
   ChapterSeed,
@@ -262,9 +266,53 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       const localState = loadState();
       const exists = await cloudLogExists(userId);
 
+      // If sync was already resolved for this user, apply the stored
+      // resolution type without showing the conflict prompt again.
+      if (isSyncResolved(userId)) {
+        const record = getSyncResolvedRecord(userId);
+        try {
+          if (record?.resolution === "useCloud") {
+            const remote = await downloadStudyLog(userId);
+            if (remote) {
+              saveState(remote); // Cloud is authoritative
+            }
+          } else if (record?.resolution === "useLocal") {
+            if (localState) {
+              await uploadStudyLog(userId, localState); // Verify upload succeeds
+            }
+          } else if (record?.resolution === "merge") {
+            const remote = await downloadStudyLog(userId);
+            if (remote && localState) {
+              const merged: StudyState = {
+                ...remote,
+                dailyLog: { ...(remote.dailyLog ?? {}), ...(localState.dailyLog ?? {}) },
+                todos: { ...(remote.todos ?? {}), ...(localState.todos ?? {}) },
+              };
+              saveState(merged);
+              await uploadStudyLog(userId, merged); // Verify upload succeeds
+            } else if (remote) {
+              saveState(remote);
+            } else if (localState) {
+              await uploadStudyLog(userId, localState);
+            }
+          }
+        } catch {
+          // Download/upload failed — keep sync disabled, preserve local data.
+          // The prompt will reappear on next load if both local and cloud exist.
+          return;
+        }
+        setSyncEnabled(true);
+        return;
+      }
+
       if (exists) {
         const remote = await downloadStudyLog(userId);
-        setRemoteState(remote ?? null);
+        // Use the local variable (React state updates are async).
+        if (remote !== null) {
+          setRemoteState(remote);
+        } else {
+          setRemoteState(null);
+        }
         // If both local and cloud exist, wait for user to resolve (AuthPrompt).
         // syncEnabled stays false until resolveSync is called.
         if (localState) return;
@@ -399,17 +447,20 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   const resolveSync = useCallback(
     async (choice: "useCloud" | "useLocal" | "merge") => {
       if (!user) return;
-      setSyncEnabled(true);
 
       if (choice === "useCloud" && remoteState) {
-        saveState(remoteState);
+        saveState(remoteState); // Verify local write succeeds (sync throws on failure)
+        setSyncEnabled(true);
+        markSyncResolved(user.id, "useCloud"); // Only mark after successful save
         return;
       }
       if (choice === "useLocal") {
         const local = loadState();
         if (local) {
           backupLocalLog();
-          await uploadStudyLog(user.id, local);
+          await uploadStudyLog(user.id, local); // Verify upload succeeds before marking
+          setSyncEnabled(true);
+          markSyncResolved(user.id, "useLocal");
         }
         return;
       }
@@ -422,8 +473,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             dailyLog: { ...(remoteState.dailyLog ?? {}), ...(local.dailyLog ?? {}) },
             todos: { ...(remoteState.todos ?? {}), ...(local.todos ?? {}) },
           };
-          saveState(merged);
-          await uploadStudyLog(user.id, merged);
+          saveState(merged); // Verify local write succeeds
+          await uploadStudyLog(user.id, merged); // Verify upload succeeds before marking
+          setSyncEnabled(true);
+          markSyncResolved(user.id, "merge");
         }
         return;
       }

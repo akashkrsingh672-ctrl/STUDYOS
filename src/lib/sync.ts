@@ -1,5 +1,5 @@
 import type { StudyState } from "./types";
-import { STORAGE_KEY } from "./storage";
+import { STORAGE_KEY, STORAGE_VERSION } from "./storage";
 import { createSupabaseClient } from "./supabase";
 
 /** Key used to back up local data before any cloud operation. */
@@ -104,4 +104,96 @@ export async function cloudLogExists(userId: string): Promise<boolean> {
 
   if (error) throw error;
   return (count ?? 0) > 0;
+}
+
+/** Key prefix for per-user sync-resolution tracking in localStorage. */
+const SYNC_RESOLVED_KEY_PREFIX = "studyos:sync-resolved-";
+
+/**
+ * Resolution outcome recorded for a user after they choose how to handle
+ * a local-vs-cloud conflict.
+ */
+export type SyncResolution = "useCloud" | "useLocal" | "merge";
+
+/** Persisted record of a completed sync resolution for one user. */
+interface SyncResolvedRecord {
+  /** ISO timestamp when the resolution was completed. */
+  resolvedAt: string;
+  /** Which option the user chose. */
+  resolution: SyncResolution;
+  /** STORAGE_VERSION at the time of resolution. */
+  version: number;
+}
+
+/**
+ * Checks whether the sync conflict has already been resolved for this user.
+ * Persisted in localStorage so it survives page refreshes and browser restarts.
+ */
+export function isSyncResolved(userId: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = window.localStorage.getItem(
+      `${SYNC_RESOLVED_KEY_PREFIX}${userId}`,
+    );
+    return raw !== null;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Reads the stored sync-resolution record for this user.
+ * Returns null if no resolution has been recorded.
+ */
+export function getSyncResolvedRecord(userId: string): SyncResolvedRecord | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(
+      `${SYNC_RESOLVED_KEY_PREFIX}${userId}`,
+    );
+    if (!raw) return null;
+    return JSON.parse(raw) as SyncResolvedRecord;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Marks the sync conflict as resolved for this user after the chosen migration
+ * has been successfully completed and verified. Only call this after the
+ * save/upload/download operation has been confirmed to succeed.
+ */
+export function markSyncResolved(
+  userId: string,
+  resolution: SyncResolution,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    const record: SyncResolvedRecord = {
+      resolvedAt: new Date().toISOString(),
+      resolution,
+      version: STORAGE_VERSION,
+    };
+    window.localStorage.setItem(
+      `${SYNC_RESOLVED_KEY_PREFIX}${userId}`,
+      JSON.stringify(record),
+    );
+  } catch {
+    // Ignore storage failures — sync can still proceed without tracking.
+  }
+}
+
+/**
+ * Clears the sync-resolution state for this user (e.g., explicit reset or
+ * fresh-sync request). Never reused across different user IDs.
+ */
+export function clearSyncResolved(userId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(
+      `${SYNC_RESOLVED_KEY_PREFIX}${userId}`,
+    );
+  } catch {
+    // Ignore storage failures.
+  }
 }
